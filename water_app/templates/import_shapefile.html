@@ -1,0 +1,231 @@
+{% extends "admin/base_site.html" %}
+{% load i18n static %}
+
+{% block extrastyle %}
+{{ block.super }}
+<style>
+    .import-form {
+        max-width: 800px;
+        margin: 20px auto;
+        padding: 20px;
+        background: #fff;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .form-group {
+        margin-bottom: 20px;
+    }
+    .form-group label {
+        display: block;
+        margin-bottom: 5px;
+        font-weight: 600;
+        color: #333;
+    }
+    .form-group input, .form-group select, .form-group textarea {
+        width: 100%;
+        padding: 8px 12px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        box-sizing: border-box;
+    }
+    .form-group .help {
+        font-size: 12px;
+        color: #666;
+        margin-top: 5px;
+    }
+    .submit-row {
+        padding: 20px 0;
+        text-align: right;
+    }
+    .submit-row input {
+        background: #79aec8;
+        color: white;
+        padding: 10px 20px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-weight: 600;
+    }
+    .submit-row input:hover {
+        background: #609ab6;
+    }
+    .file-list {
+        margin-top: 10px;
+        padding: 10px;
+        background: #f8f8f8;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        max-height: 200px;
+        overflow-y: auto;
+    }
+    .file-item {
+        padding: 5px 0;
+        border-bottom: 1px solid #eee;
+        display: flex;
+        align-items: center;
+    }
+    .file-item:last-child {
+        border-bottom: none;
+    }
+    .file-item i {
+        margin-right: 10px;
+        color: #666;
+        width: 20px;
+    }
+    .file-item .file-name {
+        flex: 1;
+    }
+    .file-item .file-size {
+        color: #666;
+        font-size: 0.9em;
+    }
+    .file-item .shp-badge {
+        background: #28a745;
+        color: white;
+        padding: 2px 8px;
+        border-radius: 3px;
+        font-size: 0.8em;
+        margin-left: 10px;
+    }
+    .errorlist {
+        color: #dc3545;
+        list-style: none;
+        padding: 0;
+        margin: 5px 0 0;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div id="content-main">
+    <div class="import-form">
+        <h2>{{ title }}</h2>
+        
+        <form method="post" enctype="multipart/form-data" id="uploadForm">
+            {% csrf_token %}
+            
+            {% if form.non_field_errors %}
+            <div class="errorlist">
+                {{ form.non_field_errors }}
+            </div>
+            {% endif %}
+            
+            {% for field in form %}
+            <div class="form-group">
+                {{ field.label_tag }}
+                {{ field }}
+                {% if field.help_text %}
+                <div class="help">{{ field.help_text }}</div>
+                {% endif %}
+                {% if field.errors %}
+                <div class="errorlist">{{ field.errors }}</div>
+                {% endif %}
+            </div>
+            {% endfor %}
+            
+            <div id="fileList" class="file-list" style="display: none;">
+                <h4>Selected Files:</h4>
+                <div id="fileItems"></div>
+            </div>
+            
+            <div class="submit-row">
+                <input type="submit" value="Upload and Import" id="submitBtn">
+            </div>
+        </form>
+        
+        <div style="margin-top: 20px; padding: 15px; background: #f0f7f0; border-left: 4px solid #5cb85c;">
+            <h4 style="margin-top: 0;">Instructions:</h4>
+            <ol style="margin-bottom: 0;">
+                <li>Select all files that make up your shapefile (.shp, .shx, .dbf, .prj, .cpg)</li>
+                <li>Choose the appropriate model type for your data</li>
+                <li>Give your upload a descriptive name</li>
+                <li>Click "Upload and Import" to start the import process</li>
+            </ol>
+            <p style="margin-top: 10px; color: #666;">
+                <strong>Note:</strong> You can select multiple files at once using Ctrl/Cmd key.
+            </p>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const fileInput = document.querySelector('#id_shapefile_files');
+    const fileList = document.getElementById('fileList');
+    const fileItems = document.getElementById('fileItems');
+    const submitBtn = document.getElementById('submitBtn');
+    
+    function formatFileSize(bytes) {
+        if (bytes === 0) return '0 Bytes';
+        const k = 1024;
+        const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    }
+    
+    fileInput.addEventListener('change', function() {
+        const files = this.files;
+        
+        if (files.length > 0) {
+            fileList.style.display = 'block';
+            fileItems.innerHTML = '';
+            
+            let hasShp = false;
+            
+            for (let i = 0; i < files.length; i++) {
+                const file = files[i];
+                const fileItem = document.createElement('div');
+                fileItem.className = 'file-item';
+                
+                let icon = 'fa-file';
+                let badge = '';
+                
+                if (file.name.endsWith('.shp')) {
+                    icon = 'fa-map';
+                    hasShp = true;
+                    badge = '<span class="shp-badge">SHP</span>';
+                } else if (file.name.endsWith('.shx')) {
+                    icon = 'fa-cog';
+                    badge = '<span class="shp-badge">SHX</span>';
+                } else if (file.name.endsWith('.dbf')) {
+                    icon = 'fa-table';
+                    badge = '<span class="shp-badge">DBF</span>';
+                } else if (file.name.endsWith('.prj')) {
+                    icon = 'fa-globe';
+                    badge = '<span class="shp-badge">PRJ</span>';
+                } else if (file.name.endsWith('.cpg')) {
+                    icon = 'fa-font';
+                    badge = '<span class="shp-badge">CPG</span>';
+                }
+                
+                fileItem.innerHTML = `
+                    <i class="fas ${icon}"></i>
+                    <span class="file-name">${file.name}</span>
+                    <span class="file-size">(${formatFileSize(file.size)})</span>
+                    ${badge}
+                `;
+                fileItems.appendChild(fileItem);
+            }
+            
+            // Show warning if no .shp file
+            if (!hasShp && files.length > 0) {
+                const warning = document.createElement('div');
+                warning.style.color = '#dc3545';
+                warning.style.marginTop = '10px';
+                warning.style.padding = '10px';
+                warning.style.background = '#f8d7da';
+                warning.style.borderRadius = '4px';
+                warning.innerHTML = '<i class="fas fa-exclamation-triangle"></i> Warning: No .shp file selected! A shapefile must include a .shp file.';
+                fileItems.appendChild(warning);
+                submitBtn.disabled = true;
+            } else {
+                submitBtn.disabled = false;
+            }
+        } else {
+            fileList.style.display = 'none';
+            submitBtn.disabled = false;
+        }
+    });
+});
+</script>
+{% endblock %}

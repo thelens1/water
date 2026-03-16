@@ -1,0 +1,39 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Virtual environment
+venv/
+env/
+
+# Django
+db.sqlite3
+*.log
+staticfiles/
+media/
+
+# Data folder (exclude dataset)
+data/
+
+# Environment variables
+.env
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# ArcGIS project files
+water_app/Documents/
+
+# GIS data
+*.gdb
+*.shp
+*.dbf
+*.shx
+*.sbn
+*.sbx
+*.tif
+*.tfw
+*.ovr

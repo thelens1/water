@@ -1,0 +1,907 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Add Water Point - WaterPoint AI{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<style>
+    .form-container {
+        max-width: 1200px;
+        margin: 2rem auto;
+        padding: 0 1.5rem;
+    }
+
+    .form-header {
+        background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+        border-radius: 20px;
+        padding: 2rem;
+        margin-bottom: 2rem;
+        position: relative;
+        overflow: hidden;
+        box-shadow: 0 10px 30px rgba(0, 102, 204, 0.3);
+    }
+
+    .form-header::before {
+        content: '';
+        position: absolute;
+        top: -50%;
+        right: -50%;
+        width: 200%;
+        height: 200%;
+        background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+        animation: rotate 30s linear infinite;
+    }
+
+    .form-header h1 {
+        font-size: 2.2rem;
+        font-weight: 800;
+        margin-bottom: 0.5rem;
+        position: relative;
+        z-index: 1;
+    }
+
+    .form-header p {
+        font-size: 1.1rem;
+        opacity: 0.9;
+        position: relative;
+        z-index: 1;
+    }
+
+    .steps-indicator {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 2rem;
+        padding: 0 1rem;
+    }
+
+    .step {
+        flex: 1;
+        text-align: center;
+        position: relative;
+    }
+
+    .step::before {
+        content: '';
+        position: absolute;
+        top: 20px;
+        left: 50%;
+        width: 100%;
+        height: 2px;
+        background: rgba(255,255,255,0.1);
+        z-index: 0;
+    }
+
+    .step:last-child::before {
+        display: none;
+    }
+
+    .step-number {
+        width: 40px;
+        height: 40px;
+        background: rgba(255,255,255,0.1);
+        border: 2px solid rgba(255,255,255,0.2);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 0.5rem;
+        font-weight: 700;
+        position: relative;
+        z-index: 1;
+        transition: all 0.3s ease;
+    }
+
+    .step.active .step-number {
+        background: var(--primary);
+        border-color: var(--primary-light);
+        box-shadow: 0 0 20px rgba(0, 102, 204, 0.5);
+    }
+
+    .step.completed .step-number {
+        background: var(--success);
+        border-color: var(--success);
+    }
+
+    .step-title {
+        font-size: 0.9rem;
+        font-weight: 600;
+        color: rgba(255,255,255,0.7);
+    }
+
+    .step.active .step-title {
+        color: white;
+    }
+
+    .form-card {
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 20px;
+        padding: 2rem;
+        margin-bottom: 2rem;
+        backdrop-filter: blur(10px);
+    }
+
+    .form-section {
+        display: none;
+    }
+
+    .form-section.active {
+        display: block;
+    }
+
+    .section-title {
+        font-size: 1.3rem;
+        font-weight: 700;
+        margin-bottom: 1.5rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        color: var(--primary-light);
+    }
+
+    .section-title i {
+        font-size: 1.5rem;
+    }
+
+    .form-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 1.5rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .form-group {
+        margin-bottom: 1.2rem;
+    }
+
+    .form-group label {
+        display: block;
+        margin-bottom: 0.5rem;
+        font-weight: 500;
+        color: rgba(255,255,255,0.9);
+        font-size: 0.95rem;
+    }
+
+    .form-group label i {
+        margin-right: 0.5rem;
+        color: var(--primary-light);
+    }
+
+    .form-control {
+        width: 100%;
+        padding: 0.8rem 1rem;
+        background: rgba(0, 0, 0, 0.3);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 12px;
+        color: white;
+        font-size: 1rem;
+        transition: all 0.3s ease;
+    }
+
+    .form-control:focus {
+        outline: none;
+        border-color: var(--primary);
+        box-shadow: 0 0 0 3px rgba(0, 102, 204, 0.2);
+        background: rgba(0, 0, 0, 0.4);
+    }
+
+    .form-control::placeholder {
+        color: rgba(255,255,255,0.3);
+    }
+
+    select.form-control {
+        cursor: pointer;
+    }
+
+    select.form-control option {
+        background: var(--dark);
+        color: white;
+    }
+
+    .checkbox-group {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .checkbox-group input[type="checkbox"] {
+        width: 20px;
+        height: 20px;
+        cursor: pointer;
+    }
+
+    .map-container {
+        height: 400px;
+        border-radius: 12px;
+        overflow: hidden;
+        margin-bottom: 1.5rem;
+        border: 2px solid rgba(255,255,255,0.1);
+    }
+
+    #locationMap {
+        height: 100%;
+        width: 100%;
+        background: #1a1a2e;
+    }
+
+    .coordinates-display {
+        background: rgba(0,0,0,0.3);
+        border-radius: 12px;
+        padding: 1rem;
+        display: flex;
+        gap: 1rem;
+        align-items: center;
+        flex-wrap: wrap;
+    }
+
+    .coord-item {
+        flex: 1;
+        min-width: 200px;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .coord-item i {
+        color: var(--primary-light);
+    }
+
+    .form-navigation {
+        display: flex;
+        justify-content: space-between;
+        margin-top: 2rem;
+    }
+
+    .btn-nav {
+        padding: 0.8rem 2rem;
+        border-radius: 12px;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        border: none;
+    }
+
+    .btn-prev {
+        background: rgba(255,255,255,0.1);
+        color: white;
+    }
+
+    .btn-prev:hover {
+        background: rgba(255,255,255,0.2);
+        transform: translateX(-5px);
+    }
+
+    .btn-next, .btn-submit {
+        background: var(--gradient-primary);
+        color: white;
+    }
+
+    .btn-next:hover, .btn-submit:hover {
+        transform: translateX(5px);
+        box-shadow: 0 5px 20px rgba(0, 102, 204, 0.4);
+    }
+
+    .btn-submit {
+        background: var(--gradient-success);
+    }
+
+    .btn-submit:hover {
+        box-shadow: 0 5px 20px rgba(0, 204, 68, 0.4);
+    }
+
+    .help-text {
+        font-size: 0.85rem;
+        color: rgba(255,255,255,0.5);
+        margin-top: 0.3rem;
+    }
+
+    .errorlist {
+        list-style: none;
+        padding: 0;
+        margin: 0.5rem 0 0;
+        color: var(--danger);
+        font-size: 0.85rem;
+    }
+
+    .errorlist li {
+        margin-bottom: 0.2rem;
+    }
+
+    .field-error {
+        border-color: var(--danger) !important;
+    }
+
+    /* File input styling */
+    .file-input-wrapper {
+        position: relative;
+    }
+
+    .file-input-wrapper input[type="file"] {
+        position: absolute;
+        opacity: 0;
+        width: 100%;
+        height: 100%;
+        cursor: pointer;
+    }
+
+    .file-input-label {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        padding: 0.8rem 1rem;
+        background: rgba(0,0,0,0.3);
+        border: 1px dashed rgba(255,255,255,0.2);
+        border-radius: 12px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+
+    .file-input-label:hover {
+        border-color: var(--primary);
+        background: rgba(0,102,204,0.1);
+    }
+
+    .file-input-label i {
+        font-size: 1.5rem;
+        color: var(--primary-light);
+    }
+
+    .file-name {
+        font-size: 0.9rem;
+        color: rgba(255,255,255,0.7);
+    }
+
+    @keyframes rotate {
+        from { transform: rotate(0deg); }
+        to { transform: rotate(360deg); }
+    }
+
+    @media (max-width: 768px) {
+        .form-header h1 {
+            font-size: 1.8rem;
+        }
+        
+        .steps-indicator {
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+        
+        .step {
+            flex: 0 0 calc(50% - 0.5rem);
+        }
+        
+        .step::before {
+            display: none;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="form-container">
+    <!-- Form Header -->
+    <div class="form-header">
+        <h1>
+            <i class="fas fa-plus-circle me-2"></i>
+            Add New Water Point
+        </h1>
+        <p>Fill in the details below to add a new water point to the system. All fields marked with * are required.</p>
+    </div>
+
+    <!-- Steps Indicator -->
+    <div class="steps-indicator">
+        <div class="step active" id="step1-indicator">
+            <div class="step-number">1</div>
+            <div class="step-title">Basic Info</div>
+        </div>
+        <div class="step" id="step2-indicator">
+            <div class="step-number">2</div>
+            <div class="step-title">Location</div>
+        </div>
+        <div class="step" id="step3-indicator">
+            <div class="step-number">3</div>
+            <div class="step-title">Water Details</div>
+        </div>
+        <div class="step" id="step4-indicator">
+            <div class="step-number">4</div>
+            <div class="step-title">Quality & Infrastructure</div>
+        </div>
+    </div>
+
+    <!-- Form -->
+    <form method="post" enctype="multipart/form-data" id="waterPointForm">
+        {% csrf_token %}
+        
+        <!-- Step 1: Basic Information -->
+        <div class="form-card">
+            <div class="form-section active" id="step1">
+                <div class="section-title">
+                    <i class="fas fa-info-circle"></i>
+                    Basic Information
+                </div>
+                
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="{{ form.name.id_for_label }}">
+                            <i class="fas fa-tag"></i> Water Point Name
+                        </label>
+                        {{ form.name }}
+                        <div class="help-text">Enter a descriptive name for this water point</div>
+                        {% if form.name.errors %}
+                        <ul class="errorlist">
+                            {% for error in form.name.errors %}
+                            <li>{{ error }}</li>
+                            {% endfor %}
+                        </ul>
+                        {% endif %}
+                    </div>
+
+                    <div class="form-group">
+                        <label for="{{ form.locality.id_for_label }}">
+                            <i class="fas fa-location-dot"></i> Locality/Village
+                        </label>
+                        {{ form.locality }}
+                        <div class="help-text">Local name or village where the water point is located</div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="{{ form.country.id_for_label }}">
+                            <i class="fas fa-globe"></i> Country
+                        </label>
+                        {{ form.country }}
+                    </div>
+
+                    <div class="form-group">
+                        <label for="{{ form.admin_1.id_for_label }}">
+                            <i class="fas fa-map"></i> Region/County
+                        </label>
+                        {{ form.admin_1 }}
+                    </div>
+
+                    <div class="form-group">
+                        <label for="{{ form.sub_county.id_for_label }}">
+                            <i class="fas fa-map-pin"></i> Sub-County
+                        </label>
+                        {{ form.sub_county }}
+                    </div>
+
+                    <div class="form-group">
+                        <label for="{{ form.ward.id_for_label }}">
+                            <i class="fas fa-map-marked-alt"></i> Ward
+                        </label>
+                        {{ form.ward }}
+                    </div>
+
+                    <div class="form-group">
+                        <label for="{{ form.status.id_for_label }}">
+                            <i class="fas fa-check-circle"></i> Status
+                        </label>
+                        {{ form.status }}
+                    </div>
+
+                    <div class="form-group">
+                        <label for="{{ form.source_1.id_for_label }}">
+                            <i class="fas fa-database"></i> Data Source
+                        </label>
+                        {{ form.source_1 }}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Step 2: Location Coordinates -->
+            <div class="form-section" id="step2">
+                <div class="section-title">
+                    <i class="fas fa-map-marker-alt"></i>
+                    Location Coordinates
+                </div>
+
+                <!-- Map for location selection -->
+                <div class="map-container">
+                    <div id="locationMap"></div>
+                </div>
+
+                <!-- Coordinate Inputs -->
+                <div class="coordinates-display">
+                    <div class="coord-item">
+                        <i class="fas fa-arrow-up"></i>
+                        <span>Latitude:</span>
+                        <strong id="current-lat">{{ form.latitude.value|default:"3.5000" }}</strong>
+                    </div>
+                    <div class="coord-item">
+                        <i class="fas fa-arrow-right"></i>
+                        <span>Longitude:</span>
+                        <strong id="current-lng">{{ form.longitude.value|default:"35.8000" }}</strong>
+                    </div>
+                    <button type="button" class="btn btn-sm btn-primary" onclick="getCurrentLocation()">
+                        <i class="fas fa-location-dot"></i> Use My Location
+                    </button>
+                </div>
+
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="{{ form.latitude.id_for_label }}">
+                            <i class="fas fa-arrow-up"></i> Latitude
+                        </label>
+                        {{ form.latitude }}
+                        <div class="help-text">Between -90 and 90. Click on map to set.</div>
+                        {% if form.latitude.errors %}
+                        <ul class="errorlist">
+                            {% for error in form.latitude.errors %}
+                            <li>{{ error }}</li>
+                            {% endfor %}
+                        </ul>
+                        {% endif %}
+                    </div>
+
+                    <div class="form-group">
+                        <label for="{{ form.longitude.id_for_label }}">
+                            <i class="fas fa-arrow-right"></i> Longitude
+                        </label>
+                        {{ form.longitude }}
+                        <div class="help-text">Between -180 and 180. Click on map to set.</div>
+                        {% if form.longitude.errors %}
+                        <ul class="errorlist">
+                            {% for error in form.longitude.errors %}
+                            <li>{{ error }}</li>
+                            {% endfor %}
+                        </ul>
+                        {% endif %}
+                    </div>
+
+                    <div class="form-group">
+                        <label for="{{ form.elevation.id_for_label }}">
+                            <i class="fas fa-mountain"></i> Elevation (m)
+                        </label>
+                        {{ form.elevation }}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Step 3: Water Point Details -->
+            <div class="form-section" id="step3">
+                <div class="section-title">
+                    <i class="fas fa-water"></i>
+                    Water Point Details
+                </div>
+
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="{{ form.yield_field.id_for_label }}">
+                            <i class="fas fa-gauge-high"></i> Yield (L/s)
+                        </label>
+                        {{ form.yield_field }}
+                        <div class="help-text">Water yield in liters per second</div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="{{ form.well_depth.id_for_label }}">
+                            <i class="fas fa-arrow-down"></i> Well Depth (m)
+                        </label>
+                        {{ form.well_depth }}
+                        <div class="help-text">Depth of the well in meters</div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="{{ form.operation_field.id_for_label }}">
+                            <i class="fas fa-gear"></i> Operation Status
+                        </label>
+                        {{ form.operation_field }}
+                        <div class="help-text">e.g., Operational, Dry, Hand Pump, etc.</div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="{{ form.water_rest.id_for_label }}">
+                            <i class="fas fa-ban"></i> Water Restriction
+                        </label>
+                        {{ form.water_rest }}
+                    </div>
+
+                    <div class="form-group">
+                        <label for="{{ form.water_quality.id_for_label }}">
+                            <i class="fas fa-flask"></i> Water Quality
+                        </label>
+                        {{ form.water_quality }}
+                    </div>
+
+                    <div class="form-group">
+                        <label for="{{ form.drilling_e.id_for_label }}">
+                            <i class="fas fa-hard-hat"></i> Drilling Entity
+                        </label>
+                        {{ form.drilling_e }}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Step 4: Quality & Infrastructure -->
+            <div class="form-section" id="step4">
+                <div class="section-title">
+                    <i class="fas fa-flask"></i>
+                    Water Quality & Infrastructure
+                </div>
+
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="{{ form.ph.id_for_label }}">
+                            <i class="fas fa-droplet"></i> pH Level
+                        </label>
+                        {{ form.ph }}
+                        <div class="help-text">pH value between 0 and 14</div>
+                        {% if form.ph.errors %}
+                        <ul class="errorlist">
+                            {% for error in form.ph.errors %}
+                            <li>{{ error }}</li>
+                            {% endfor %}
+                        </ul>
+                        {% endif %}
+                    </div>
+
+                    <div class="form-group">
+                        <label for="{{ form.ec.id_for_label }}">
+                            <i class="fas fa-bolt"></i> EC (µS/cm)
+                        </label>
+                        {{ form.ec }}
+                        <div class="help-text">Electrical conductivity</div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="{{ form.temperatur.id_for_label }}">
+                            <i class="fas fa-temperature-high"></i> Temperature (°C)
+                        </label>
+                        {{ form.temperatur }}
+                    </div>
+
+                    <div class="form-group">
+                        <label for="{{ form.first_stru.id_for_label }}">
+                            <i class="fas fa-layer-group"></i> First Structure
+                        </label>
+                        {{ form.first_stru }}
+                    </div>
+
+                    <div class="form-group">
+                        <label for="{{ form.second_str.id_for_label }}">
+                            <i class="fas fa-layer-group"></i> Second Structure
+                        </label>
+                        {{ form.second_str }}
+                    </div>
+
+                    <div class="form-group">
+                        <label for="{{ form.third_stru.id_for_label }}">
+                            <i class="fas fa-layer-group"></i> Third Structure
+                        </label>
+                        {{ form.third_stru }}
+                    </div>
+
+                    <div class="form-group">
+                        <div class="checkbox-group">
+                            {{ form.has_pump }}
+                            <label for="{{ form.has_pump.id_for_label }}">
+                                <i class="fas fa-pump-water"></i> Has Pump
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="{{ form.pump_type.id_for_label }}">
+                            <i class="fas fa-tools"></i> Pump Type
+                        </label>
+                        {{ form.pump_type }}
+                    </div>
+
+                    <div class="form-group">
+                        <label for="{{ form.installed_year.id_for_label }}">
+                            <i class="fas fa-calendar-alt"></i> Installation Year
+                        </label>
+                        {{ form.installed_year }}
+                    </div>
+
+                    <div class="form-group">
+                        <label for="{{ form.last_maintenance.id_for_label }}">
+                            <i class="fas fa-wrench"></i> Last Maintenance
+                        </label>
+                        {{ form.last_maintenance }}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Form Navigation -->
+            <div class="form-navigation">
+                <button type="button" class="btn-nav btn-prev" id="prevBtn" onclick="prevStep()" style="visibility: hidden;">
+                    <i class="fas fa-arrow-left"></i> Previous
+                </button>
+                <button type="button" class="btn-nav btn-next" id="nextBtn" onclick="nextStep()">
+                    Next <i class="fas fa-arrow-right"></i>
+                </button>
+                <button type="submit" class="btn-nav btn-submit" id="submitBtn" style="display: none;">
+                    <i class="fas fa-check"></i> Add Water Point
+                </button>
+            </div>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+    // Multi-step form handling
+    let currentStep = 1;
+    const totalSteps = 4;
+
+    function updateSteps() {
+        // Update step indicators
+        for (let i = 1; i <= totalSteps; i++) {
+            const indicator = document.getElementById(`step${i}-indicator`);
+            if (i < currentStep) {
+                indicator.classList.add('completed');
+                indicator.classList.remove('active');
+            } else if (i === currentStep) {
+                indicator.classList.add('active');
+                indicator.classList.remove('completed');
+            } else {
+                indicator.classList.remove('active', 'completed');
+            }
+        }
+
+        // Show/hide sections
+        document.querySelectorAll('.form-section').forEach((section, index) => {
+            if (index + 1 === currentStep) {
+                section.classList.add('active');
+            } else {
+                section.classList.remove('active');
+            }
+        });
+
+        // Update navigation buttons
+        const prevBtn = document.getElementById('prevBtn');
+        const nextBtn = document.getElementById('nextBtn');
+        const submitBtn = document.getElementById('submitBtn');
+
+        if (currentStep === 1) {
+            prevBtn.style.visibility = 'hidden';
+        } else {
+            prevBtn.style.visibility = 'visible';
+        }
+
+        if (currentStep === totalSteps) {
+            nextBtn.style.display = 'none';
+            submitBtn.style.display = 'flex';
+        } else {
+            nextBtn.style.display = 'flex';
+            submitBtn.style.display = 'none';
+        }
+    }
+
+    function nextStep() {
+        if (currentStep < totalSteps) {
+            currentStep++;
+            updateSteps();
+        }
+    }
+
+    function prevStep() {
+        if (currentStep > 1) {
+            currentStep--;
+            updateSteps();
+        }
+    }
+
+    // Initialize map
+    const map = L.map('locationMap').setView([3.5, 35.8], 7);
+    
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap contributors'
+    }).addTo(map);
+
+    // Add marker for selected location
+    let marker = null;
+    
+    // Get initial coordinates from form
+    const latInput = document.getElementById('{{ form.latitude.id_for_label }}');
+    const lngInput = document.getElementById('{{ form.longitude.id_for_label }}');
+    
+    function updateMarker(lat, lng) {
+        if (marker) {
+            marker.setLatLng([lat, lng]);
+        } else {
+            marker = L.marker([lat, lng], {
+                draggable: true
+            }).addTo(map);
+            
+            marker.on('dragend', function(e) {
+                const pos = e.target.getLatLng();
+                latInput.value = pos.lat.toFixed(6);
+                lngInput.value = pos.lng.toFixed(6);
+                document.getElementById('current-lat').textContent = pos.lat.toFixed(4);
+                document.getElementById('current-lng').textContent = pos.lng.toFixed(4);
+            });
+        }
+        
+        latInput.value = lat.toFixed(6);
+        lngInput.value = lng.toFixed(6);
+        document.getElementById('current-lat').textContent = lat.toFixed(4);
+        document.getElementById('current-lng').textContent = lng.toFixed(4);
+    }
+
+    // Set initial marker if coordinates exist
+    if (latInput.value && lngInput.value) {
+        updateMarker(parseFloat(latInput.value), parseFloat(lngInput.value));
+        map.setView([parseFloat(latInput.value), parseFloat(lngInput.value)], 12);
+    }
+
+    // Handle map clicks
+    map.on('click', function(e) {
+        updateMarker(e.latlng.lat, e.latlng.lng);
+    });
+
+    // Get current location
+    function getCurrentLocation() {
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(
+                function(position) {
+                    const lat = position.coords.latitude;
+                    const lng = position.coords.longitude;
+                    updateMarker(lat, lng);
+                    map.setView([lat, lng], 15);
+                },
+                function(error) {
+                    alert('Error getting location: ' + error.message);
+                }
+            );
+        } else {
+            alert('Geolocation is not supported by your browser');
+        }
+    }
+
+    // Ward dropdown based on subcounty selection
+    const subcountySelect = document.getElementById('{{ form.sub_county.id_for_label }}');
+    const wardSelect = document.getElementById('{{ form.ward.id_for_label }}');
+
+    subcountySelect.addEventListener('change', function() {
+        const subcountyId = this.value;
+        if (subcountyId) {
+            fetch(`/api/wards-list/?subcounty_id=${subcountyId}`)
+                .then(response => response.json())
+                .then(data => {
+                    wardSelect.innerHTML = '<option value="">Select Ward</option>';
+                    data.forEach(ward => {
+                        const option = document.createElement('option');
+                        option.value = ward.id;
+                        option.textContent = ward.name;
+                        wardSelect.appendChild(option);
+                    });
+                });
+        }
+    });
+
+    // Form validation
+    document.getElementById('waterPointForm').addEventListener('submit', function(e) {
+        const lat = parseFloat(latInput.value);
+        const lng = parseFloat(lngInput.value);
+        
+        if (lat < -90 || lat > 90) {
+            e.preventDefault();
+            alert('Latitude must be between -90 and 90');
+        }
+        
+        if (lng < -180 || lng > 180) {
+            e.preventDefault();
+            alert('Longitude must be between -180 and 180');
+        }
+    });
+
+    // Initialize file input display
+    document.querySelectorAll('input[type="file"]').forEach(input => {
+        input.addEventListener('change', function(e) {
+            const fileName = this.files[0]?.name;
+            const label = this.nextElementSibling;
+            if (label && label.classList.contains('file-name')) {
+                label.textContent = fileName || 'No file chosen';
+            }
+        });
+    });
+</script>
+{% endblock %}

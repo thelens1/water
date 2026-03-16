@@ -1,0 +1,1311 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Analytics Dashboard - WaterPoint AI{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.css">
+<style>
+    :root {
+        --card-bg: rgba(255, 255, 255, 0.05);
+        --card-border: rgba(255, 255, 255, 0.1);
+        --hover-transform: translateY(-5px);
+        --transition: all 0.3s ease;
+    }
+
+    .dashboard-container {
+        padding: 2rem;
+        max-width: 1600px;
+        margin: 0 auto;
+    }
+
+    /* Welcome Banner */
+    .welcome-banner {
+        background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+        border-radius: 24px;
+        padding: 2rem;
+        margin-bottom: 2rem;
+        position: relative;
+        overflow: hidden;
+        box-shadow: 0 10px 30px rgba(0, 102, 204, 0.3);
+    }
+
+    .welcome-banner::before {
+        content: '';
+        position: absolute;
+        top: -50%;
+        right: -50%;
+        width: 200%;
+        height: 200%;
+        background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+        animation: rotate 30s linear infinite;
+    }
+
+    .welcome-banner h1 {
+        font-size: 2.5rem;
+        font-weight: 800;
+        margin-bottom: 0.5rem;
+        position: relative;
+        z-index: 1;
+    }
+
+    .welcome-banner p {
+        font-size: 1.1rem;
+        opacity: 0.9;
+        position: relative;
+        z-index: 1;
+    }
+
+    .date-badge {
+        position: absolute;
+        top: 2rem;
+        right: 2rem;
+        background: rgba(255,255,255,0.2);
+        padding: 0.5rem 1rem;
+        border-radius: 50px;
+        font-size: 0.9rem;
+        backdrop-filter: blur(5px);
+        border: 1px solid rgba(255,255,255,0.3);
+    }
+
+    /* Stats Grid */
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 1.5rem;
+        margin-bottom: 2rem;
+    }
+
+    .stat-card {
+        background: var(--card-bg);
+        border: 1px solid var(--card-border);
+        border-radius: 20px;
+        padding: 1.5rem;
+        transition: var(--transition);
+        position: relative;
+        overflow: hidden;
+        backdrop-filter: blur(10px);
+    }
+
+    .stat-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 4px;
+        background: linear-gradient(90deg, var(--primary), var(--secondary));
+        transform: translateX(-100%);
+        transition: transform 0.6s ease;
+    }
+
+    .stat-card:hover::before {
+        transform: translateX(0);
+    }
+
+    .stat-card:hover {
+        transform: var(--hover-transform);
+        border-color: var(--primary);
+        box-shadow: 0 10px 30px rgba(0, 102, 204, 0.2);
+    }
+
+    .stat-icon {
+        width: 60px;
+        height: 60px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-bottom: 1rem;
+        font-size: 1.8rem;
+    }
+
+    .stat-icon.water { background: rgba(0, 102, 204, 0.2); color: var(--primary); }
+    .stat-icon.op { background: rgba(0, 204, 68, 0.2); color: var(--success); }
+    .stat-icon.non-op { background: rgba(255, 68, 68, 0.2); color: var(--danger); }
+    .stat-icon.unknown { background: rgba(255, 170, 0, 0.2); color: var(--warning); }
+    .stat-icon.ml { background: rgba(255, 153, 0, 0.2); color: var(--accent); }
+    .stat-icon.user { background: rgba(51, 181, 229, 0.2); color: var(--info); }
+
+    .stat-value {
+        font-size: 2.5rem;
+        font-weight: 800;
+        line-height: 1.2;
+        margin-bottom: 0.3rem;
+    }
+
+    .stat-label {
+        color: rgba(255,255,255,0.7);
+        font-size: 0.9rem;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+    }
+
+    .stat-trend {
+        position: absolute;
+        top: 1.5rem;
+        right: 1.5rem;
+        font-size: 0.9rem;
+        padding: 0.3rem 0.8rem;
+        border-radius: 50px;
+        background: rgba(255,255,255,0.1);
+    }
+
+    /* Charts Row */
+    .charts-row {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(450px, 1fr));
+        gap: 1.5rem;
+        margin-bottom: 2rem;
+    }
+
+    .chart-card {
+        background: var(--card-bg);
+        border: 1px solid var(--card-border);
+        border-radius: 20px;
+        padding: 1.5rem;
+        backdrop-filter: blur(10px);
+    }
+
+    .chart-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1.5rem;
+    }
+
+    .chart-header h5 {
+        margin: 0;
+        font-weight: 700;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .chart-header i {
+        color: var(--primary-light);
+    }
+
+    .chart-container {
+        height: 300px;
+        position: relative;
+    }
+
+    /* Three Column Grid */
+    .three-col-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 1.5rem;
+        margin-bottom: 2rem;
+    }
+
+    @media (max-width: 992px) {
+        .three-col-grid {
+            grid-template-columns: repeat(2, 1fr);
+        }
+    }
+
+    @media (max-width: 768px) {
+        .three-col-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    /* Tables */
+    .table-card {
+        background: var(--card-bg);
+        border: 1px solid var(--card-border);
+        border-radius: 20px;
+        padding: 1.5rem;
+        margin-bottom: 2rem;
+        backdrop-filter: blur(10px);
+    }
+
+    .table-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1.5rem;
+    }
+
+    .table-header h5 {
+        margin: 0;
+        font-weight: 700;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .table-responsive {
+        overflow-x: auto;
+    }
+
+    .table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    .table th {
+        background: rgba(0, 0, 0, 0.3);
+        padding: 1rem;
+        font-weight: 600;
+        text-align: left;
+        color: rgba(255,255,255,0.9);
+        border-bottom: 2px solid rgba(255,255,255,0.1);
+    }
+
+    .table td {
+        padding: 1rem;
+        border-bottom: 1px solid rgba(255,255,255,0.05);
+    }
+
+    .table tbody tr:hover {
+        background: rgba(255,255,255,0.05);
+    }
+
+    /* Progress Bars */
+    .progress-container {
+        margin: 1rem 0;
+    }
+
+    .progress-label {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 0.3rem;
+        font-size: 0.9rem;
+    }
+
+    .progress-bar-bg {
+        height: 8px;
+        background: rgba(255,255,255,0.1);
+        border-radius: 4px;
+        overflow: hidden;
+    }
+
+    .progress-bar-fill {
+        height: 100%;
+        border-radius: 4px;
+        transition: width 0.6s ease;
+    }
+
+    .fill-success { background: linear-gradient(90deg, var(--success), #00ff88); }
+    .fill-danger { background: linear-gradient(90deg, var(--danger), #ff8888); }
+    .fill-warning { background: linear-gradient(90deg, var(--warning), #ffcc00); }
+    .fill-primary { background: linear-gradient(90deg, var(--primary), var(--primary-light)); }
+
+    /* Activity Feed */
+    .activity-feed {
+        max-height: 400px;
+        overflow-y: auto;
+    }
+
+    .activity-item {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        padding: 1rem;
+        border-bottom: 1px solid rgba(255,255,255,0.05);
+        transition: var(--transition);
+    }
+
+    .activity-item:hover {
+        background: rgba(255,255,255,0.05);
+        transform: translateX(5px);
+    }
+
+    .activity-icon {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+    }
+
+    .activity-icon.login { background: rgba(0, 102, 204, 0.2); color: var(--primary); }
+    .activity-icon.add { background: rgba(0, 204, 68, 0.2); color: var(--success); }
+    .activity-icon.edit { background: rgba(51, 181, 229, 0.2); color: var(--info); }
+    .activity-icon.delete { background: rgba(255, 68, 68, 0.2); color: var(--danger); }
+    .activity-icon.prediction { background: rgba(255, 153, 0, 0.2); color: var(--accent); }
+
+    .activity-content {
+        flex: 1;
+    }
+
+    .activity-title {
+        font-weight: 600;
+        margin-bottom: 0.2rem;
+    }
+
+    .activity-time {
+        font-size: 0.8rem;
+        color: rgba(255,255,255,0.5);
+    }
+
+    /* Model Status Badge */
+    .model-status {
+        display: inline-flex;
+        align-items: center;
+        padding: 0.3rem 1rem;
+        border-radius: 50px;
+        font-size: 0.85rem;
+        font-weight: 600;
+        margin-left: 1rem;
+    }
+
+    .model-status.active {
+        background: rgba(0, 204, 68, 0.2);
+        color: var(--success);
+        border: 1px solid rgba(0, 204, 68, 0.3);
+    }
+
+    .model-status.inactive {
+        background: rgba(255, 68, 68, 0.2);
+        color: var(--danger);
+        border: 1px solid rgba(255, 68, 68, 0.3);
+    }
+
+    /* Quick Actions */
+    .quick-actions {
+        display: flex;
+        gap: 1rem;
+        flex-wrap: wrap;
+        margin-top: 1rem;
+    }
+
+    .action-btn {
+        padding: 0.8rem 1.5rem;
+        border-radius: 12px;
+        background: rgba(255,255,255,0.05);
+        border: 1px solid rgba(255,255,255,0.1);
+        color: white;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        transition: var(--transition);
+        text-decoration: none;
+    }
+
+    .action-btn:hover {
+        background: var(--primary);
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(0, 102, 204, 0.3);
+        color: white;
+    }
+
+    /* Status Badges */
+    .status-badge {
+        display: inline-block;
+        padding: 0.3rem 0.8rem;
+        border-radius: 50px;
+        font-size: 0.8rem;
+        font-weight: 600;
+    }
+
+    .status-operational {
+        background: rgba(0, 204, 68, 0.2);
+        color: var(--success);
+    }
+
+    .status-non-operational {
+        background: rgba(255, 68, 68, 0.2);
+        color: var(--danger);
+    }
+
+    .status-unknown {
+        background: rgba(255, 170, 0, 0.2);
+        color: var(--warning);
+    }
+
+    /* Insight Cards */
+    .insight-card {
+        background: linear-gradient(135deg, rgba(0,102,204,0.1) 0%, rgba(0,153,204,0.05) 100%);
+        border: 1px solid rgba(0,102,204,0.2);
+        border-radius: 16px;
+        padding: 1.2rem;
+        margin-bottom: 1rem;
+    }
+
+    .insight-title {
+        font-size: 0.9rem;
+        color: var(--primary-light);
+        margin-bottom: 0.3rem;
+        display: flex;
+        align-items: center;
+        gap: 0.3rem;
+    }
+
+    .insight-value {
+        font-size: 1.3rem;
+        font-weight: 700;
+        margin-bottom: 0.2rem;
+    }
+
+    .insight-desc {
+        font-size: 0.8rem;
+        color: rgba(255,255,255,0.6);
+    }
+
+    /* Correlation Indicator */
+    .correlation-positive {
+        color: var(--success);
+    }
+
+    .correlation-negative {
+        color: var(--danger);
+    }
+
+    @keyframes rotate {
+        from { transform: rotate(0deg); }
+        to { transform: rotate(360deg); }
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+        .dashboard-container {
+            padding: 1rem;
+        }
+
+        .welcome-banner h1 {
+            font-size: 1.8rem;
+        }
+
+        .date-badge {
+            position: static;
+            margin-top: 1rem;
+            display: inline-block;
+        }
+
+        .charts-row {
+            grid-template-columns: 1fr;
+        }
+
+        .stat-value {
+            font-size: 2rem;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="dashboard-container">
+    <!-- Welcome Banner -->
+    <div class="welcome-banner">
+        <h1>
+            <i class="fas fa-chart-line me-2"></i>
+            Advanced Analytics Dashboard
+        </h1>
+        <p>Welcome back, {{ user.get_full_name|default:user.username }}! Here's an in-depth analysis of your water point data.</p>
+        <span class="date-badge">
+            <i class="far fa-calendar-alt me-2"></i>
+            {{ current_date|date:"l, F j, Y" }}
+        </span>
+    </div>
+
+    <!-- Stats Grid -->
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-icon water">
+                <i class="fas fa-water"></i>
+            </div>
+            <div class="stat-value">{{ total_water_points|default:"0" }}</div>
+            <div class="stat-label">Total Water Points</div>
+            <div class="stat-trend">
+                <i class="fas fa-arrow-up text-success"></i> +{{ new_points_this_month|default:"0" }} this month
+            </div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-icon op">
+                <i class="fas fa-check-circle"></i>
+            </div>
+            <div class="stat-value">{{ operational|default:"0" }}</div>
+            <div class="stat-label">Operational</div>
+            <div class="stat-trend" style="color: var(--success);">
+                {{ operational_percent|default:"0" }}% of total
+            </div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-icon non-op">
+                <i class="fas fa-times-circle"></i>
+            </div>
+            <div class="stat-value">{{ non_operational|default:"0" }}</div>
+            <div class="stat-label">Non-Operational</div>
+            <div class="stat-trend" style="color: var(--danger);">
+                {{ non_operational_percent|default:"0" }}% of total
+            </div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-icon unknown">
+                <i class="fas fa-question-circle"></i>
+            </div>
+            <div class="stat-value">{{ unknown|default:"0" }}</div>
+            <div class="stat-label">Unknown Status</div>
+            <div class="stat-trend" style="color: var(--warning);">
+                Needs classification
+            </div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-icon ml">
+                <i class="fas fa-robot"></i>
+            </div>
+            <div class="stat-value">{{ total_predictions|default:"0" }}</div>
+            <div class="stat-label">ML Predictions</div>
+            <div class="stat-trend">
+                <span class="model-status {% if model_ready %}active{% else %}inactive{% endif %}">
+                    <i class="fas fa-circle me-1" style="font-size: 0.6rem;"></i>
+                    Model {% if model_ready %}Active{% else %}Inactive{% endif %}
+                </span>
+            </div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-icon user">
+                <i class="fas fa-user-check"></i>
+            </div>
+            <div class="stat-value">{{ user_points|default:"0" }}</div>
+            <div class="stat-label">Your Contributions</div>
+            <div class="stat-trend">
+                <i class="fas fa-star text-warning"></i> {{ user_predictions|default:"0" }} predictions
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="quick-actions">
+        <a href="{% url 'water_app:map_view' %}" class="action-btn">
+            <i class="fas fa-map"></i>
+            View Map
+        </a>
+        <a href="{% url 'water_app:add_water_point' %}" class="action-btn">
+            <i class="fas fa-plus"></i>
+            Add Water Point
+        </a>
+        <a href="{% url 'water_app:prediction_dashboard' %}" class="action-btn">
+            <i class="fas fa-robot"></i>
+            ML Predictions
+        </a>
+        <a href="{% url 'water_app:export_data' %}?format=csv" class="action-btn">
+            <i class="fas fa-download"></i>
+            Export Data
+        </a>
+    </div>
+
+    <!-- Charts Row -->
+    <div class="charts-row">
+        <!-- Status Distribution Chart -->
+        <div class="chart-card">
+            <div class="chart-header">
+                <h5>
+                    <i class="fas fa-chart-pie"></i>
+                    Status Distribution
+                </h5>
+                <span class="badge bg-primary">Based on operation_field</span>
+            </div>
+            <div class="chart-container">
+                <canvas id="statusChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Monthly Trends Chart -->
+        <div class="chart-card">
+            <div class="chart-header">
+                <h5>
+                    <i class="fas fa-chart-line"></i>
+                    Monthly Trends
+                </h5>
+                <span class="badge bg-info">Last 6 Months</span>
+            </div>
+            <div class="chart-container">
+                <canvas id="trendsChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Classification Insights -->
+    <div class="three-col-grid">
+        <!-- Operational Keywords Analysis -->
+        <div class="chart-card">
+            <div class="chart-header">
+                <h5>
+                    <i class="fas fa-key"></i>
+                    Top Operational Keywords
+                </h5>
+                <span class="badge bg-success">From operation_field</span>
+            </div>
+            <div style="height: 250px;">
+                <canvas id="operationalKeywordsChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Non-Operational Keywords Analysis -->
+        <div class="chart-card">
+            <div class="chart-header">
+                <h5>
+                    <i class="fas fa-key"></i>
+                    Top Non-Operational Keywords
+                </h5>
+                <span class="badge bg-danger">From operation_field</span>
+            </div>
+            <div style="height: 250px;">
+                <canvas id="nonOperationalKeywordsChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Classification Summary -->
+        <div class="chart-card">
+            <div class="chart-header">
+                <h5>
+                    <i class="fas fa-tasks"></i>
+                    Classification Summary
+                </h5>
+                <span class="badge bg-info">Auto-classified</span>
+            </div>
+            <div style="padding: 1rem;">
+                <div class="insight-card">
+                    <div class="insight-title">
+                        <i class="fas fa-check-circle" style="color: var(--success);"></i>
+                        Operational Indicators Found
+                    </div>
+                    <div class="insight-value">{{ operational_keywords_count|default:"0" }}</div>
+                    <div class="insight-desc">Points with operational keywords in operation_field</div>
+                </div>
+                <div class="insight-card">
+                    <div class="insight-title">
+                        <i class="fas fa-times-circle" style="color: var(--danger);"></i>
+                        Non-Operational Indicators Found
+                    </div>
+                    <div class="insight-value">{{ non_operational_keywords_count|default:"0" }}</div>
+                    <div class="insight-desc">Points with non-operational keywords in operation_field</div>
+                </div>
+                <div class="insight-card">
+                    <div class="insight-title">
+                        <i class="fas fa-balance-scale"></i>
+                        Classification Ratio
+                    </div>
+                    <div class="insight-value">{{ classification_ratio|default:"0" }}%</div>
+                    <div class="insight-desc">Operational vs Non-Operational</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Second Row: Additional Stats -->
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h6 class="mb-0"><i class="fas fa-chart-bar me-2" style="color: var(--primary);"></i>Average Depth</h6>
+                <i class="fas fa-arrow-down" style="color: var(--danger);"></i>
+            </div>
+            <div class="stat-value" style="font-size: 2rem;">{{ avg_depth|default:"N/A" }}</div>
+            <div class="stat-label">meters</div>
+            <div class="progress-container mt-3">
+                <div class="progress-label">
+                    <span>vs. Baseline</span>
+                    <span>{{ depth_vs_baseline|default:"0" }}%</span>
+                </div>
+                <div class="progress-bar-bg">
+                    <div class="progress-bar-fill fill-primary" style="width: {{ depth_percent|default:"50" }}%;"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="stat-card">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h6 class="mb-0"><i class="fas fa-tint me-2" style="color: var(--success);"></i>Average Yield</h6>
+                <i class="fas fa-arrow-up" style="color: var(--success);"></i>
+            </div>
+            <div class="stat-value" style="font-size: 2rem;">{{ avg_yield|default:"N/A" }}</div>
+            <div class="stat-label">L/s</div>
+            <div class="progress-container mt-3">
+                <div class="progress-label">
+                    <span>Productivity Index</span>
+                    <span>{{ yield_percent|default:"50" }}%</span>
+                </div>
+                <div class="progress-bar-bg">
+                    <div class="progress-bar-fill fill-success" style="width: {{ yield_percent|default:"50" }}%;"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="stat-card">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h6 class="mb-0"><i class="fas fa-check-circle me-2" style="color: var(--success);"></i>Success Rate</h6>
+            </div>
+            <div class="stat-value" style="font-size: 2rem;">{{ operational_percent|default:"0" }}%</div>
+            <div class="stat-label">Operational Rate</div>
+            <div class="progress-container mt-3">
+                <div class="progress-label">
+                    <span>Target: 30%</span>
+                    <span>{{ operational_percent|default:"0" }}/30%</span>
+                </div>
+                <div class="progress-bar-bg">
+                    <div class="progress-bar-fill fill-success" style="width: {{ operational_percent|default:"0" }}%;"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="stat-card">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h6 class="mb-0"><i class="fas fa-clock me-2" style="color: var(--info);"></i>Prediction Accuracy</h6>
+            </div>
+            <div class="stat-value" style="font-size: 2rem;">{{ prediction_accuracy|default:"N/A" }}</div>
+            <div class="stat-label">Model Accuracy</div>
+            <div class="progress-container mt-3">
+                <div class="progress-label">
+                    <span>vs. Baseline: +{{ accuracy_improvement|default:"0" }}%</span>
+                    <span>{{ prediction_accuracy|default:"0" }}%</span>
+                </div>
+                <div class="progress-bar-bg">
+                    <div class="progress-bar-fill fill-warning" style="width: {{ prediction_accuracy|default:"0" }}%;"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Depth and Yield Analysis by Status -->
+    <div class="charts-row">
+        <!-- Depth Distribution by Status -->
+        <div class="chart-card">
+            <div class="chart-header">
+                <h5>
+                    <i class="fas fa-arrow-down"></i>
+                    Average Depth by Status
+                </h5>
+                <span class="badge bg-info">meters</span>
+            </div>
+            <div class="chart-container">
+                <canvas id="depthByStatusChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Yield Distribution by Status -->
+        <div class="chart-card">
+            <div class="chart-header">
+                <h5>
+                    <i class="fas fa-tint"></i>
+                    Average Yield by Status
+                </h5>
+                <span class="badge bg-info">L/s</span>
+            </div>
+            <div class="chart-container">
+                <canvas id="yieldByStatusChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Three Column Layout for Detailed Analysis -->
+    <div class="three-col-grid">
+        <!-- Top Sub-Counties by Operational Rate -->
+        <div class="table-card">
+            <div class="table-header">
+                <h5>
+                    <i class="fas fa-trophy"></i>
+                    Top Sub-Counties by Success Rate
+                </h5>
+                <span class="badge bg-success">Operational %</span>
+            </div>
+            <div class="table-responsive">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Sub-County</th>
+                            <th>Total</th>
+                            <th>Operational</th>
+                            <th>Success Rate</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for sc in top_subcounties_by_success %}
+                        <tr>
+                            <td><strong>{{ sc.subcounty|truncatechars:20 }}</strong></td>
+                            <td>{{ sc.total }}</td>
+                            <td>{{ sc.operational }}</td>
+                            <td>
+                                <span class="{% if sc.success_rate > 20 %}text-success{% elif sc.success_rate > 10 %}text-warning{% else %}text-danger{% endif %}">
+                                    {{ sc.success_rate }}%
+                                </span>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="4" class="text-center text-muted">No data available</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Sub-Counties with Most Points -->
+        <div class="table-card">
+            <div class="table-header">
+                <h5>
+                    <i class="fas fa-map-marker-alt"></i>
+                    Sub-Counties with Most Points
+                </h5>
+                <span class="badge bg-primary">Total Count</span>
+            </div>
+            <div class="table-responsive">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Sub-County</th>
+                            <th>Total Points</th>
+                            <th>% of Total</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for sc in top_subcounties_by_count %}
+                        <tr>
+                            <td><strong>{{ sc.subcounty|truncatechars:20 }}</strong></td>
+                            <td>{{ sc.total }}</td>
+                            <td>{{ sc.percentage }}%</td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="3" class="text-center text-muted">No data available</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Critical Points (Non-Operational) -->
+        <div class="table-card">
+            <div class="table-header">
+                <h5>
+                    <i class="fas fa-exclamation-triangle"></i>
+                    Critical Non-Operational Points
+                </h5>
+                <span class="badge bg-danger">Requires Attention</span>
+            </div>
+            <div class="table-responsive">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Location</th>
+                            <th>Reason</th>
+                            <th>Depth</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for point in critical_points %}
+                        <tr>
+                            <td>{{ point.locality|default:point.name|truncatechars:15 }}</td>
+                            <td>
+                                <span class="status-badge status-non-operational">
+                                    {{ point.operation_field|truncatechars:15 }}
+                                </span>
+                            </td>
+                            <td>{{ point.well_depth|default:"-" }} m</td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="3" class="text-center text-muted">No critical points</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Activity Feed -->
+    <div class="table-card">
+        <div class="table-header">
+            <h5>
+                <i class="fas fa-history"></i>
+                Recent Activity
+            </h5>
+            <span class="badge bg-info">Live Feed</span>
+        </div>
+        <div class="activity-feed">
+            {% for activity in recent_activities %}
+            <div class="activity-item">
+                <div class="activity-icon {{ activity.activity_type }}">
+                    {% if activity.activity_type == 'login' %}
+                        <i class="fas fa-sign-in-alt"></i>
+                    {% elif activity.activity_type == 'add_point' %}
+                        <i class="fas fa-plus"></i>
+                    {% elif activity.activity_type == 'edit_point' %}
+                        <i class="fas fa-edit"></i>
+                    {% elif activity.activity_type == 'delete_point' %}
+                        <i class="fas fa-trash"></i>
+                    {% elif activity.activity_type == 'prediction' %}
+                        <i class="fas fa-robot"></i>
+                    {% elif activity.activity_type == 'upload_boundary' %}
+                        <i class="fas fa-upload"></i>
+                    {% elif activity.activity_type == 'export_data' %}
+                        <i class="fas fa-download"></i>
+                    {% else %}
+                        <i class="fas fa-circle"></i>
+                    {% endif %}
+                </div>
+                <div class="activity-content">
+                    <div class="activity-title">{{ activity.description|truncatechars:50 }}</div>
+                    <div class="activity-time">
+                        <i class="far fa-clock me-1"></i>
+                        {{ activity.timestamp|timesince }} ago
+                        {% if activity.ip_address %}
+                        <span class="ms-2 text-muted">· {{ activity.ip_address }}</span>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            {% empty %}
+            <div class="text-center text-muted py-4">
+                <i class="fas fa-inbox fa-3x mb-3"></i>
+                <p>No recent activity</p>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Your Recent Water Points -->
+    <div class="table-card">
+        <div class="table-header">
+            <h5>
+                <i class="fas fa-water"></i>
+                Your Recent Water Points
+            </h5>
+            <a href="{% url 'water_app:add_water_point' %}" class="btn btn-primary btn-sm">
+                <i class="fas fa-plus"></i> Add New
+            </a>
+        </div>
+        <div class="table-responsive">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Location</th>
+                        <th>Sub-County</th>
+                        <th>Status</th>
+                        <th>Operation Field</th>
+                        <th>Depth</th>
+                        <th>Yield</th>
+                        <th>Added</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for point in user_water_points %}
+                    <tr>
+                        <td>
+                            <strong>{{ point.name|default:point.locality|truncatechars:20 }}</strong>
+                        </td>
+                        <td>
+                            <small>
+                                <i class="fas fa-map-marker-alt me-1" style="color: var(--danger);"></i>
+                                {{ point.latitude|floatformat:4 }}, {{ point.longitude|floatformat:4 }}
+                            </small>
+                        </td>
+                        <td>{{ point.sub_county.subcounty|default:"-" }}</td>
+                        <td>
+                            <span class="status-badge status-{{ point.status }}">
+                                {{ point.get_status_display }}
+                            </span>
+                        </td>
+                        <td>
+                            <small class="text-muted">{{ point.operation_field|truncatechars:15|default:"-" }}</small>
+                        </td>
+                        <td>{{ point.well_depth|default:"-" }} m</td>
+                        <td>{{ point.yield_field|default:"-" }} L/s</td>
+                        <td>
+                            <small class="text-muted">
+                                <i class="far fa-calendar-alt me-1"></i>
+                                {{ point.created_at|date:"M d, Y" }}
+                            </small>
+                        </td>
+                        <td>
+                            <a href="{% url 'water_app:water_point_detail' point.id %}" class="btn btn-sm btn-outline-primary">
+                                <i class="fas fa-eye"></i>
+                            </a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="9" class="text-center text-muted py-4">
+                            <i class="fas fa-water fa-3x mb-3"></i>
+                            <p>You haven't added any water points yet.</p>
+                            <a href="{% url 'water_app:add_water_point' %}" class="btn btn-primary">
+                                <i class="fas fa-plus"></i> Add Your First Water Point
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Status Distribution Chart
+        const statusCtx = document.getElementById('statusChart').getContext('2d');
+        const statusData = {{ status_data|safe }};
+        
+        new Chart(statusCtx, {
+            type: 'doughnut',
+            data: {
+                labels: statusData.labels || ['Operational', 'Non-Operational', 'Unknown'],
+                datasets: [{
+                    data: statusData.values || [{{ operational }}, {{ non_operational }}, {{ unknown }}],
+                    backgroundColor: statusData.colors || ['#00cc44', '#ff4444', '#ffaa00'],
+                    borderColor: 'transparent',
+                    hoverOffset: 10
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                cutout: '65%',
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: {
+                            color: 'rgba(255,255,255,0.7)',
+                            font: { size: 12 },
+                            padding: 20
+                        }
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                const label = context.label || '';
+                                const value = context.raw || 0;
+                                const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                const percentage = ((value / total) * 100).toFixed(1);
+                                return `${label}: ${value} (${percentage}%)`;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
+        // Monthly Trends Chart
+        const trendsCtx = document.getElementById('trendsChart').getContext('2d');
+        const months = {{ months|safe }};
+        const monthlyCounts = {{ monthly_counts|safe }};
+        const operationalCounts = {{ operational_counts|safe }};
+
+        new Chart(trendsCtx, {
+            type: 'line',
+            data: {
+                labels: months || ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
+                datasets: [
+                    {
+                        label: 'Total Points',
+                        data: monthlyCounts || [0, 0, 0, 0, 0, 0],
+                        borderColor: '#0066cc',
+                        backgroundColor: 'rgba(0, 102, 204, 0.1)',
+                        borderWidth: 3,
+                        pointBackgroundColor: '#0066cc',
+                        pointBorderColor: '#fff',
+                        pointHoverBackgroundColor: '#fff',
+                        pointHoverBorderColor: '#0066cc',
+                        tension: 0.4,
+                        fill: true
+                    },
+                    {
+                        label: 'Operational',
+                        data: operationalCounts || [0, 0, 0, 0, 0, 0],
+                        borderColor: '#00cc44',
+                        backgroundColor: 'rgba(0, 204, 68, 0.1)',
+                        borderWidth: 3,
+                        pointBackgroundColor: '#00cc44',
+                        pointBorderColor: '#fff',
+                        pointHoverBackgroundColor: '#fff',
+                        pointHoverBorderColor: '#00cc44',
+                        tension: 0.4,
+                        fill: true
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    x: {
+                        grid: {
+                            color: 'rgba(255,255,255,0.1)'
+                        },
+                        ticks: {
+                            color: 'rgba(255,255,255,0.7)'
+                        }
+                    },
+                    y: {
+                        beginAtZero: true,
+                        grid: {
+                            color: 'rgba(255,255,255,0.1)'
+                        },
+                        ticks: {
+                            color: 'rgba(255,255,255,0.7)',
+                            stepSize: 10
+                        }
+                    }
+                },
+                plugins: {
+                    legend: {
+                        position: 'top',
+                        labels: {
+                            color: 'rgba(255,255,255,0.7)',
+                            usePointStyle: true,
+                            pointStyle: 'circle'
+                        }
+                    },
+                    tooltip: {
+                        mode: 'index',
+                        intersect: false
+                    }
+                }
+            }
+        });
+
+        // Operational Keywords Chart
+        const opKeywordsCtx = document.getElementById('operationalKeywordsChart').getContext('2d');
+        new Chart(opKeywordsCtx, {
+            type: 'bar',
+            data: {
+                labels: {{ operational_keywords_labels|safe }},
+                datasets: [{
+                    label: 'Occurrences',
+                    data: {{ operational_keywords_data|safe }},
+                    backgroundColor: 'rgba(0, 204, 68, 0.7)',
+                    borderColor: '#00cc44',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                indexAxis: 'y',
+                scales: {
+                    x: {
+                        grid: { color: 'rgba(255,255,255,0.1)' },
+                        ticks: { color: 'rgba(255,255,255,0.7)' }
+                    },
+                    y: {
+                        grid: { display: false },
+                        ticks: { color: 'rgba(255,255,255,0.7)' }
+                    }
+                },
+                plugins: {
+                    legend: { display: false }
+                }
+            }
+        });
+
+        // Non-Operational Keywords Chart
+        const nonOpKeywordsCtx = document.getElementById('nonOperationalKeywordsChart').getContext('2d');
+        new Chart(nonOpKeywordsCtx, {
+            type: 'bar',
+            data: {
+                labels: {{ non_operational_keywords_labels|safe }},
+                datasets: [{
+                    label: 'Occurrences',
+                    data: {{ non_operational_keywords_data|safe }},
+                    backgroundColor: 'rgba(255, 68, 68, 0.7)',
+                    borderColor: '#ff4444',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                indexAxis: 'y',
+                scales: {
+                    x: {
+                        grid: { color: 'rgba(255,255,255,0.1)' },
+                        ticks: { color: 'rgba(255,255,255,0.7)' }
+                    },
+                    y: {
+                        grid: { display: false },
+                        ticks: { color: 'rgba(255,255,255,0.7)' }
+                    }
+                },
+                plugins: {
+                    legend: { display: false }
+                }
+            }
+        });
+
+        // Depth by Status Chart
+        const depthCtx = document.getElementById('depthByStatusChart').getContext('2d');
+        new Chart(depthCtx, {
+            type: 'bar',
+            data: {
+                labels: ['Operational', 'Non-Operational', 'Unknown'],
+                datasets: [{
+                    label: 'Average Depth (m)',
+                    data: [{{ depth_operational|default:0 }}, {{ depth_non_operational|default:0 }}, {{ depth_unknown|default:0 }}],
+                    backgroundColor: ['#00cc44', '#ff4444', '#ffaa00'],
+                    borderRadius: 8
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        grid: { color: 'rgba(255,255,255,0.1)' },
+                        ticks: { color: 'rgba(255,255,255,0.7)' }
+                    },
+                    x: {
+                        grid: { display: false },
+                        ticks: { color: 'rgba(255,255,255,0.7)' }
+                    }
+                },
+                plugins: {
+                    legend: { display: false }
+                }
+            }
+        });
+
+        // Yield by Status Chart
+        const yieldCtx = document.getElementById('yieldByStatusChart').getContext('2d');
+        new Chart(yieldCtx, {
+            type: 'bar',
+            data: {
+                labels: ['Operational', 'Non-Operational', 'Unknown'],
+                datasets: [{
+                    label: 'Average Yield (L/s)',
+                    data: [{{ yield_operational|default:0 }}, {{ yield_non_operational|default:0 }}, {{ yield_unknown|default:0 }}],
+                    backgroundColor: ['#00cc44', '#ff4444', '#ffaa00'],
+                    borderRadius: 8
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        grid: { color: 'rgba(255,255,255,0.1)' },
+                        ticks: { color: 'rgba(255,255,255,0.7)' }
+                    },
+                    x: {
+                        grid: { display: false },
+                        ticks: { color: 'rgba(255,255,255,0.7)' }
+                    }
+                },
+                plugins: {
+                    legend: { display: false }
+                }
+            }
+        });
+    });
+</script>
+{% endblock %}

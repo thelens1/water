@@ -1,0 +1,960 @@
+{% extends "admin/base_site.html" %}
+{% load static %}
+
+{% block extrastyle %}
+{{ block.super }}
+<style>
+    :root {
+        --primary: #0066cc;
+        --primary-dark: #004999;
+        --primary-light: #4d94ff;
+        --secondary: #00cc99;
+        --success: #00cc44;
+        --danger: #ff4444;
+        --warning: #ffaa00;
+        --info: #33b5e5;
+        --dark: #1a1a2e;
+        --darker: #0f0f1a;
+        --light: #f8f9fa;
+    }
+
+    * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+    }
+
+    body {
+        background: linear-gradient(135deg, var(--darker) 0%, var(--dark) 100%);
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+
+    #header {
+        background: rgba(26, 26, 46, 0.95) !important;
+        backdrop-filter: blur(10px);
+        border-bottom: 1px solid rgba(255,255,255,0.1);
+        color: white !important;
+    }
+
+    #branding h1 {
+        color: white !important;
+   }
+
+    .import-container {
+        max-width: 1000px;
+        margin: 2rem auto;
+        padding: 0 1.5rem;
+    }
+
+    /* Header Card */
+    .header-card {
+        background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+        border-radius: 24px;
+        padding: 2.5rem;
+        margin-bottom: 2rem;
+        position: relative;
+        overflow: hidden;
+        box-shadow: 0 20px 40px rgba(0, 102, 204, 0.3);
+    }
+
+    .header-card::before {
+        content: '';
+        position: absolute;
+        top: -50%;
+        right: -50%;
+        width: 200%;
+        height: 200%;
+        background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+        animation: rotate 30s linear infinite;
+    }
+
+    .header-card h2 {
+        font-size: 2.2rem;
+        font-weight: 800;
+        margin-bottom: 0.5rem;
+        position: relative;
+        z-index: 1;
+        color: white;
+    }
+
+    .header-card p {
+        font-size: 1.1rem;
+        opacity: 0.9;
+        position: relative;
+        z-index: 1;
+        color: rgba(255,255,255,0.9);
+    }
+
+    /* Main Form Card */
+    .form-card {
+        background: rgba(255, 255, 255, 0.05);
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 24px;
+        padding: 2.5rem;
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+    }
+
+    .form-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 1.5rem;
+        margin-bottom: 2rem;
+    }
+
+    .form-group {
+        margin-bottom: 1.5rem;
+    }
+
+    .form-group label {
+        display: block;
+        margin-bottom: 0.5rem;
+        font-weight: 600;
+        color: rgba(255,255,255,0.9);
+        font-size: 0.95rem;
+        letter-spacing: 0.3px;
+    }
+
+    .form-group label i {
+        margin-right: 0.5rem;
+        color: var(--primary-light);
+    }
+
+    .form-control {
+        width: 100%;
+        padding: 0.8rem 1rem;
+        background: rgba(0, 0, 0, 0.3);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 12px;
+        color: white;
+        font-size: 0.95rem;
+        transition: all 0.3s ease;
+    }
+
+    .form-control:focus {
+        outline: none;
+        border-color: var(--primary);
+        box-shadow: 0 0 0 3px rgba(0, 102, 204, 0.2);
+        background: rgba(0, 0, 0, 0.4);
+    }
+
+    .form-control::placeholder {
+        color: rgba(255,255,255,0.3);
+    }
+
+    select.form-control {
+        cursor: pointer;
+    }
+
+    select.form-control option {
+        background: var(--dark);
+        color: white;
+    }
+
+    /* File Upload Area */
+    .file-upload-area {
+        border: 2px dashed rgba(255,255,255,0.2);
+        border-radius: 16px;
+        padding: 2.5rem;
+        text-align: center;
+        background: rgba(0,0,0,0.2);
+        transition: all 0.3s ease;
+        cursor: pointer;
+        margin-bottom: 2rem;
+    }
+
+    .file-upload-area:hover {
+        border-color: var(--primary);
+        background: rgba(0,102,204,0.1);
+    }
+
+    .file-upload-area.dragover {
+        border-color: var(--success);
+        background: rgba(0,204,68,0.1);
+    }
+
+    .upload-icon {
+        font-size: 3.5rem;
+        color: var(--primary-light);
+        margin-bottom: 1rem;
+    }
+
+    .upload-title {
+        font-size: 1.3rem;
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+        color: white;
+    }
+
+    .upload-subtitle {
+        color: rgba(255,255,255,0.6);
+        margin-bottom: 1rem;
+    }
+
+    .file-types {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        justify-content: center;
+        margin-top: 1rem;
+    }
+
+    .file-type-badge {
+        background: rgba(255,255,255,0.1);
+        padding: 0.3rem 1rem;
+        border-radius: 50px;
+        font-size: 0.8rem;
+        color: rgba(255,255,255,0.8);
+        border: 1px solid rgba(255,255,255,0.1);
+    }
+
+    /* File List */
+    .file-list {
+        background: rgba(0,0,0,0.2);
+        border-radius: 12px;
+        padding: 1rem;
+        margin-top: 1rem;
+        max-height: 300px;
+        overflow-y: auto;
+    }
+
+    .file-list h4 {
+        color: rgba(255,255,255,0.9);
+        font-size: 1rem;
+        margin-bottom: 1rem;
+        padding-bottom: 0.5rem;
+        border-bottom: 1px solid rgba(255,255,255,0.1);
+    }
+
+    .file-item {
+        display: flex;
+        align-items: center;
+        padding: 0.8rem;
+        border-radius: 8px;
+        background: rgba(255,255,255,0.03);
+        margin-bottom: 0.5rem;
+        transition: all 0.3s ease;
+    }
+
+    .file-item:hover {
+        background: rgba(255,255,255,0.08);
+    }
+
+    .file-icon {
+        width: 32px;
+        height: 32px;
+        border-radius: 6px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-right: 1rem;
+        font-size: 1.1rem;
+    }
+
+    .file-icon.shp { background: rgba(0,102,204,0.2); color: var(--primary-light); }
+    .file-icon.shx { background: rgba(255,170,0,0.2); color: var(--warning); }
+    .file-icon.dbf { background: rgba(0,204,68,0.2); color: var(--success); }
+    .file-icon.prj { background: rgba(51,181,229,0.2); color: var(--info); }
+    .file-icon.cpg { background: rgba(255,68,68,0.2); color: var(--danger); }
+
+    .file-info {
+        flex: 1;
+    }
+
+    .file-name {
+        font-weight: 500;
+        color: white;
+        margin-bottom: 0.2rem;
+    }
+
+    .file-meta {
+        font-size: 0.8rem;
+        color: rgba(255,255,255,0.5);
+    }
+
+    .file-size {
+        font-size: 0.8rem;
+        color: rgba(255,255,255,0.5);
+        margin-left: 1rem;
+    }
+
+    .file-remove {
+        padding: 0.3rem 0.8rem;
+        background: rgba(255,68,68,0.2);
+        color: var(--danger);
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+
+    .file-remove:hover {
+        background: var(--danger);
+        color: white;
+    }
+
+    /* Progress Bar */
+    .progress-container {
+        margin: 2rem 0;
+        display: none;
+    }
+
+    .progress-label {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 0.5rem;
+        color: rgba(255,255,255,0.8);
+    }
+
+    .progress-bar {
+        height: 8px;
+        background: rgba(255,255,255,0.1);
+        border-radius: 4px;
+        overflow: hidden;
+    }
+
+    .progress-fill {
+        height: 100%;
+        background: linear-gradient(90deg, var(--primary), var(--secondary));
+        border-radius: 4px;
+        transition: width 0.3s ease;
+        width: 0%;
+    }
+
+    /* Action Buttons */
+    .action-buttons {
+        display: flex;
+        gap: 1rem;
+        margin-top: 2rem;
+    }
+
+    .btn {
+        padding: 1rem 2rem;
+        border-radius: 12px;
+        font-weight: 600;
+        font-size: 1rem;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        border: none;
+        text-decoration: none;
+    }
+
+    .btn-primary {
+        background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+        color: white;
+        box-shadow: 0 5px 15px rgba(0, 102, 204, 0.3);
+    }
+
+    .btn-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(0, 102, 204, 0.4);
+    }
+
+    .btn-primary:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+        transform: none;
+    }
+
+    .btn-secondary {
+        background: rgba(255,255,255,0.1);
+        color: white;
+        border: 1px solid rgba(255,255,255,0.2);
+    }
+
+    .btn-secondary:hover {
+        background: rgba(255,255,255,0.15);
+        transform: translateY(-2px);
+    }
+
+    .btn-success {
+        background: linear-gradient(135deg, var(--success), #00aa33);
+        color: white;
+    }
+
+    .btn-success:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(0, 204, 68, 0.3);
+    }
+
+    .btn-danger {
+        background: linear-gradient(135deg, var(--danger), #cc0000);
+        color: white;
+    }
+
+    .btn-danger:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(255, 68, 68, 0.3);
+    }
+
+    /* Instructions Card */
+    .instructions-card {
+        background: rgba(0, 102, 204, 0.1);
+        border: 1px solid rgba(0, 102, 204, 0.3);
+        border-radius: 16px;
+        padding: 1.5rem;
+        margin-top: 2rem;
+    }
+
+    .instructions-card h4 {
+        color: var(--primary-light);
+        margin-bottom: 1rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .instructions-list {
+        list-style: none;
+        padding: 0;
+    }
+
+    .instructions-list li {
+        padding: 0.5rem 0;
+        display: flex;
+        align-items: center;
+        gap: 0.8rem;
+        color: rgba(255,255,255,0.8);
+    }
+
+    .instructions-list li i {
+        color: var(--success);
+        font-size: 1rem;
+    }
+
+    .note {
+        background: rgba(255, 170, 0, 0.1);
+        border-left: 4px solid var(--warning);
+        padding: 1rem;
+        border-radius: 8px;
+        margin-top: 1rem;
+        color: rgba(255,255,255,0.8);
+    }
+
+    .note i {
+        color: var(--warning);
+        margin-right: 0.5rem;
+    }
+
+    /* Error Messages */
+    .errorlist {
+        list-style: none;
+        padding: 0;
+        margin: 0.5rem 0 0;
+        color: var(--danger);
+        font-size: 0.85rem;
+    }
+
+    .alert {
+        padding: 1rem 1.5rem;
+        border-radius: 12px;
+        margin-bottom: 1.5rem;
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+    }
+
+    .alert-error {
+        background: rgba(255, 68, 68, 0.2);
+        border: 1px solid var(--danger);
+        color: var(--danger);
+    }
+
+    .alert-success {
+        background: rgba(0, 204, 68, 0.2);
+        border: 1px solid var(--success);
+        color: var(--success);
+    }
+
+    .alert-warning {
+        background: rgba(255, 170, 0, 0.2);
+        border: 1px solid var(--warning);
+        color: var(--warning);
+    }
+
+    .alert-info {
+        background: rgba(51, 181, 229, 0.2);
+        border: 1px solid var(--info);
+        color: var(--info);
+    }
+
+    @keyframes rotate {
+        from { transform: rotate(0deg); }
+        to { transform: rotate(360deg); }
+    }
+
+    @keyframes pulse {
+        0%, 100% { transform: scale(1); }
+        50% { transform: scale(1.05); }
+    }
+
+    .pulse {
+        animation: pulse 2s infinite;
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+        .header-card h2 {
+            font-size: 1.8rem;
+        }
+        
+        .form-card {
+            padding: 1.5rem;
+        }
+        
+        .action-buttons {
+            flex-direction: column;
+        }
+        
+        .btn {
+            width: 100%;
+            justify-content: center;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="import-container">
+    <!-- Header Card -->
+    <div class="header-card">
+        <h2>
+            <i class="fas fa-upload me-2"></i>
+            Import Shapefile
+        </h2>
+        <p>Upload and import shapefile components into the database. All files will be validated before import.</p>
+    </div>
+
+    <!-- Messages -->
+    {% if messages %}
+    <div class="messages">
+        {% for message in messages %}
+        <div class="alert alert-{{ message.tags }}">
+            <i class="fas fa-{% if message.tags == 'success' %}check-circle{% elif message.tags == 'error' %}exclamation-circle{% elif message.tags == 'warning' %}exclamation-triangle{% else %}info-circle{% endif %}"></i>
+            {{ message }}
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Main Form Card -->
+    <div class="form-card">
+        <form method="post" enctype="multipart/form-data" id="uploadForm">
+            {% csrf_token %}
+            
+            {% if form.non_field_errors %}
+            <div class="alert alert-error">
+                <i class="fas fa-exclamation-circle"></i>
+                {{ form.non_field_errors }}
+            </div>
+            {% endif %}
+
+            <!-- Form Grid -->
+            <div class="form-grid">
+                <!-- Name Field -->
+                <div class="form-group">
+                    <label for="{{ form.name.id_for_label }}">
+                        <i class="fas fa-tag"></i>
+                        Upload Name
+                    </label>
+                    {{ form.name }}
+                    {% if form.name.errors %}
+                    <ul class="errorlist">
+                        {% for error in form.name.errors %}
+                        <li>{{ error }}</li>
+                        {% endfor %}
+                    </ul>
+                    {% endif %}
+                    <small class="help-text" style="color: rgba(255,255,255,0.5); margin-top: 0.3rem; display: block;">
+                        Give this upload a descriptive name
+                    </small>
+                </div>
+
+                <!-- Upload Type Field -->
+                <div class="form-group">
+                    <label for="{{ form.upload_type.id_for_label }}">
+                        <i class="fas fa-layer-group"></i>
+                        Data Type
+                    </label>
+                    {{ form.upload_type }}
+                    {% if form.upload_type.errors %}
+                    <ul class="errorlist">
+                        {% for error in form.upload_type.errors %}
+                        <li>{{ error }}</li>
+                        {% endfor %}
+                    </ul>
+                    {% endif %}
+                    <small class="help-text" style="color: rgba(255,255,255,0.5); margin-top: 0.3rem; display: block;">
+                        Select the type of data you're uploading
+                    </small>
+                </div>
+
+                <!-- Description Field -->
+                <div class="form-group" style="grid-column: 1 / -1;">
+                    <label for="{{ form.description.id_for_label }}">
+                        <i class="fas fa-align-left"></i>
+                        Description (Optional)
+                    </label>
+                    {{ form.description }}
+                    {% if form.description.errors %}
+                    <ul class="errorlist">
+                        {% for error in form.description.errors %}
+                        <li>{{ error }}</li>
+                        {% endfor %}
+                    </ul>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- File Upload Area -->
+            <div class="file-upload-area" id="dropZone">
+                <div class="upload-icon">
+                    <i class="fas fa-cloud-upload-alt"></i>
+                </div>
+                <div class="upload-title">
+                    Drag & Drop Shapefile Components
+                </div>
+                <div class="upload-subtitle">
+                    or click to browse
+                </div>
+                <input type="file" 
+                       name="shapefile_files" 
+                       id="fileInput" 
+                       multiple 
+                       style="display: none;"
+                       accept=".shp,.shx,.dbf,.prj,.cpg,.sbn,.sbx">
+                
+                <div class="file-types">
+                    <span class="file-type-badge"><i class="fas fa-map"></i> .shp</span>
+                    <span class="file-type-badge"><i class="fas fa-cog"></i> .shx</span>
+                    <span class="file-type-badge"><i class="fas fa-table"></i> .dbf</span>
+                    <span class="file-type-badge"><i class="fas fa-globe"></i> .prj</span>
+                    <span class="file-type-badge"><i class="fas fa-font"></i> .cpg</span>
+                    <span class="file-type-badge"><i class="fas fa-chart-simple"></i> .sbn/.sbx</span>
+                </div>
+            </div>
+
+            {% if form.shapefile_files.errors %}
+            <div class="alert alert-error" style="margin-top: 1rem;">
+                <i class="fas fa-exclamation-circle"></i>
+                {{ form.shapefile_files.errors }}
+            </div>
+            {% endif %}
+
+            <!-- File List -->
+            <div id="fileList" class="file-list" style="display: none;">
+                <h4>
+                    <i class="fas fa-files"></i>
+                    Selected Files
+                </h4>
+                <div id="fileItems"></div>
+            </div>
+
+            <!-- Progress Bar -->
+            <div id="progressContainer" class="progress-container">
+                <div class="progress-label">
+                    <span><i class="fas fa-spinner fa-spin"></i> Uploading...</span>
+                    <span id="progressPercent">0%</span>
+                </div>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progressBar" style="width: 0%;"></div>
+                </div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="action-buttons">
+                <button type="submit" class="btn btn-primary" id="submitBtn">
+                    <i class="fas fa-cloud-upload-alt"></i>
+                    Upload and Import
+                </button>
+                <button type="button" class="btn btn-secondary" onclick="resetForm()">
+                    <i class="fas fa-redo"></i>
+                    Reset
+                </button>
+                <a href="{% url 'admin:index' %}" class="btn btn-secondary">
+                    <i class="fas fa-times"></i>
+                    Cancel
+                </a>
+            </div>
+        </form>
+    </div>
+
+    <!-- Instructions Card -->
+    <div class="instructions-card">
+        <h4>
+            <i class="fas fa-info-circle"></i>
+            Shapefile Import Instructions
+        </h4>
+        
+        <ul class="instructions-list">
+            <li>
+                <i class="fas fa-check-circle"></i>
+                <span>Select all files that make up your shapefile (.shp, .shx, .dbf, .prj, .cpg)</span>
+            </li>
+            <li>
+                <i class="fas fa-check-circle"></i>
+                <span>The .shp file is required and must be included</span>
+            </li>
+            <li>
+                <i class="fas fa-check-circle"></i>
+                <span>Choose the appropriate data type for your upload</span>
+            </li>
+            <li>
+                <i class="fas fa-check-circle"></i>
+                <span>Maximum file size: 50MB per file, 100MB total</span>
+            </li>
+            <li>
+                <i class="fas fa-check-circle"></i>
+                <span>Give your upload a descriptive name for easy reference</span>
+            </li>
+        </ul>
+
+        <div class="note">
+            <i class="fas fa-lightbulb"></i>
+            <strong>Note:</strong> All shapefile components must have the same base filename (e.g., water_points.shp, water_points.shx, water_points.dbf, etc.)
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // File upload handling
+    const dropZone = document.getElementById('dropZone');
+    const fileInput = document.getElementById('fileInput');
+    const fileList = document.getElementById('fileList');
+    const fileItems = document.getElementById('fileItems');
+    const submitBtn = document.getElementById('submitBtn');
+    const progressContainer = document.getElementById('progressContainer');
+    const progressBar = document.getElementById('progressBar');
+    const progressPercent = document.getElementById('progressPercent');
+
+    // Format file size
+    function formatFileSize(bytes) {
+        if (bytes === 0) return '0 Bytes';
+        const k = 1024;
+        const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    }
+
+    // Get icon class based on file extension
+    function getFileIconClass(filename) {
+        const ext = filename.split('.').pop().toLowerCase();
+        const icons = {
+            'shp': 'shp',
+            'shx': 'shx',
+            'dbf': 'dbf',
+            'prj': 'prj',
+            'cpg': 'cpg',
+            'sbn': 'shp',
+            'sbx': 'shp'
+        };
+        return icons[ext] || 'shp';
+    }
+
+    // Update file list
+    function updateFileList(files) {
+        fileItems.innerHTML = '';
+        
+        if (files.length === 0) {
+            fileList.style.display = 'none';
+            return;
+        }
+
+        fileList.style.display = 'block';
+        let hasShp = false;
+        let totalSize = 0;
+
+        Array.from(files).forEach((file, index) => {
+            const iconClass = getFileIconClass(file.name);
+            const fileSize = formatFileSize(file.size);
+            totalSize += file.size;
+
+            if (file.name.toLowerCase().endsWith('.shp')) {
+                hasShp = true;
+            }
+
+            const fileItem = document.createElement('div');
+            fileItem.className = 'file-item';
+            fileItem.innerHTML = `
+                <div class="file-icon ${iconClass}">
+                    <i class="fas fa-${iconClass === 'shp' ? 'map' : iconClass === 'shx' ? 'cog' : iconClass === 'dbf' ? 'table' : iconClass === 'prj' ? 'globe' : 'file'}"></i>
+                </div>
+                <div class="file-info">
+                    <div class="file-name">${file.name}</div>
+                    <div class="file-meta">${fileSize}</div>
+                </div>
+                <button type="button" class="file-remove" onclick="removeFile(${index})">
+                    <i class="fas fa-times"></i>
+                </button>
+            `;
+            fileItems.appendChild(fileItem);
+        });
+
+        // Show warning if no .shp file
+        if (!hasShp && files.length > 0) {
+            const warning = document.createElement('div');
+            warning.style.cssText = `
+                background: rgba(255,68,68,0.1);
+                border: 1px solid var(--danger);
+                color: var(--danger);
+                padding: 1rem;
+                border-radius: 8px;
+                margin-top: 1rem;
+                display: flex;
+                align-items: center;
+                gap: 0.5rem;
+            `;
+            warning.innerHTML = `
+                <i class="fas fa-exclamation-triangle"></i>
+                <span>Warning: No .shp file selected! A shapefile must include a .shp file.</span>
+            `;
+            fileItems.appendChild(warning);
+            submitBtn.disabled = true;
+        } else {
+            submitBtn.disabled = false;
+        }
+
+        // Check total size (max 100MB)
+        if (totalSize > 100 * 1024 * 1024) {
+            const sizeWarning = document.createElement('div');
+            sizeWarning.style.cssText = `
+                background: rgba(255,68,68,0.1);
+                border: 1px solid var(--danger);
+                color: var(--danger);
+                padding: 1rem;
+                border-radius: 8px;
+                margin-top: 1rem;
+                display: flex;
+                align-items: center;
+                gap: 0.5rem;
+            `;
+            sizeWarning.innerHTML = `
+                <i class="fas fa-exclamation-triangle"></i>
+                <span>Total file size (${formatFileSize(totalSize)}) exceeds 100MB limit!</span>
+            `;
+            fileItems.appendChild(sizeWarning);
+            submitBtn.disabled = true;
+        }
+    }
+
+    // Remove file
+    window.removeFile = function(index) {
+        const dt = new DataTransfer();
+        const files = fileInput.files;
+        
+        for (let i = 0; i < files.length; i++) {
+            if (i !== index) {
+                dt.items.add(files[i]);
+            }
+        }
+        
+        fileInput.files = dt.files;
+        updateFileList(fileInput.files);
+    };
+
+    // Drop zone click
+    dropZone.addEventListener('click', () => {
+        fileInput.click();
+    });
+
+    // File input change
+    fileInput.addEventListener('change', (e) => {
+        updateFileList(e.target.files);
+    });
+
+    // Drag and drop handlers
+    dropZone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        dropZone.classList.add('dragover');
+    });
+
+    dropZone.addEventListener('dragleave', (e) => {
+        e.preventDefault();
+        dropZone.classList.remove('dragover');
+    });
+
+    dropZone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        dropZone.classList.remove('dragover');
+        
+        const files = e.dataTransfer.files;
+        fileInput.files = files;
+        updateFileList(files);
+    });
+
+    // Reset form
+    window.resetForm = function() {
+        document.getElementById('uploadForm').reset();
+        fileInput.value = '';
+        fileList.style.display = 'none';
+        fileItems.innerHTML = '';
+        submitBtn.disabled = false;
+        progressContainer.style.display = 'none';
+        progressBar.style.width = '0%';
+        progressPercent.textContent = '0%';
+    };
+
+    // Form submit with progress
+    document.getElementById('uploadForm').addEventListener('submit', function(e) {
+        const files = fileInput.files;
+        
+        if (files.length === 0) {
+            e.preventDefault();
+            alert('Please select at least one file');
+            return;
+        }
+
+        // Show progress bar
+        progressContainer.style.display = 'block';
+        submitBtn.disabled = true;
+
+        // Simulate progress (actual progress would come from server)
+        let progress = 0;
+        const interval = setInterval(() => {
+            progress += Math.random() * 10;
+            if (progress > 90) {
+                progress = 90;
+                clearInterval(interval);
+            }
+            progressBar.style.width = progress + '%';
+            progressPercent.textContent = Math.round(progress) + '%';
+        }, 500);
+
+        // Form will submit normally
+        // Progress will be cleared on page reload
+    });
+
+    // Validate before submit
+    document.getElementById('uploadForm').addEventListener('submit', function(e) {
+        const files = fileInput.files;
+        let hasShp = false;
+        let totalSize = 0;
+
+        Array.from(files).forEach(file => {
+            if (file.name.toLowerCase().endsWith('.shp')) {
+                hasShp = true;
+            }
+            totalSize += file.size;
+        });
+
+        if (!hasShp) {
+            e.preventDefault();
+            alert('Error: No .shp file found. A shapefile must include a .shp file.');
+            submitBtn.disabled = false;
+            progressContainer.style.display = 'none';
+        }
+
+        if (totalSize > 100 * 1024 * 1024) {
+            e.preventDefault();
+            alert('Error: Total file size exceeds 100MB limit.');
+            submitBtn.disabled = false;
+            progressContainer.style.display = 'none';
+        }
+    });
+</script>
+{% endblock %}

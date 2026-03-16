@@ -1,0 +1,373 @@
+<!-- templates/prediction_results.html -->
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Prediction Results - {{ batch.name }}{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<style>
+    .results-container {
+        padding: 2rem;
+        max-width: 1400px;
+        margin: 0 auto;
+    }
+
+    .header-card {
+        background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+        border-radius: 20px;
+        padding: 2rem;
+        margin-bottom: 2rem;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .header-card h2 {
+        color: white;
+        margin-bottom: 0.5rem;
+    }
+
+    .header-card p {
+        color: rgba(255,255,255,0.9);
+        margin-bottom: 0;
+    }
+
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1.5rem;
+        margin-bottom: 2rem;
+    }
+
+    .stat-card {
+        background: rgba(255,255,255,0.05);
+        border-radius: 16px;
+        padding: 1.5rem;
+        border: 1px solid rgba(255,255,255,0.1);
+        text-align: center;
+    }
+
+    .stat-value {
+        font-size: 2.5rem;
+        font-weight: 700;
+        color: var(--primary-light);
+        line-height: 1.2;
+    }
+
+    .stat-label {
+        color: rgba(255,255,255,0.7);
+        font-size: 0.9rem;
+        text-transform: uppercase;
+    }
+
+    .info-card {
+        background: rgba(255,255,255,0.05);
+        border-radius: 16px;
+        padding: 1.5rem;
+        margin-bottom: 2rem;
+    }
+
+    .info-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 1rem;
+    }
+
+    .info-item {
+        padding: 0.5rem;
+        border-bottom: 1px solid rgba(255,255,255,0.05);
+    }
+
+    .map-container {
+        height: 400px;
+        border-radius: 16px;
+        overflow: hidden;
+        margin-bottom: 2rem;
+        border: 2px solid rgba(255,255,255,0.1);
+    }
+
+    .points-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    .points-table th {
+        background: rgba(0,0,0,0.3);
+        padding: 1rem;
+        text-align: left;
+        font-weight: 600;
+        color: rgba(255,255,255,0.9);
+        border-bottom: 2px solid rgba(255,255,255,0.1);
+    }
+
+    .points-table td {
+        padding: 1rem;
+        border-bottom: 1px solid rgba(255,255,255,0.05);
+    }
+
+    .points-table tr {
+        transition: all 0.3s;
+    }
+
+    .points-table tr:hover {
+        background: rgba(255,255,255,0.08);
+    }
+
+    .badge {
+        padding: 0.3rem 0.8rem;
+        border-radius: 20px;
+        font-size: 0.8rem;
+        font-weight: 600;
+    }
+
+    .badge-success { background: rgba(0,204,68,0.2); color: #00cc44; }
+    .badge-danger { background: rgba(255,68,68,0.2); color: #ff4444; }
+    .badge-warning { background: rgba(255,170,0,0.2); color: #ffaa00; }
+    .badge-info { background: rgba(51,181,229,0.2); color: #33b5e5; }
+
+    .probability-high { color: #00cc44; font-weight: 600; }
+    .probability-medium { color: #ffaa00; font-weight: 600; }
+    .probability-low { color: #ff4444; font-weight: 600; }
+
+    .view-on-map-btn {
+        padding: 0.3rem 0.8rem;
+        border-radius: 8px;
+        background: rgba(0,102,204,0.2);
+        color: var(--primary-light);
+        border: 1px solid rgba(0,102,204,0.3);
+        cursor: pointer;
+        transition: all 0.3s;
+        font-size: 0.8rem;
+        text-decoration: none;
+        display: inline-block;
+    }
+
+    .view-on-map-btn:hover {
+        background: var(--primary);
+        color: white;
+    }
+
+    .export-buttons {
+        display: flex;
+        gap: 1rem;
+        margin-top: 2rem;
+    }
+
+    .btn-export {
+        padding: 0.8rem 1.5rem;
+        border-radius: 12px;
+        background: rgba(255,255,255,0.05);
+        border: 1px solid rgba(255,255,255,0.1);
+        color: white;
+        cursor: pointer;
+        transition: all 0.3s;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .btn-export:hover {
+        background: var(--primary);
+        transform: translateY(-2px);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="results-container">
+    <div class="header-card">
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <h2><i class="fas fa-chart-bar me-2"></i>{{ batch.name }}</h2>
+                <p>Created on {{ batch.created_at|date:"F j, Y H:i" }}</p>
+            </div>
+            <a href="{% url 'water_app:prediction_dashboard' %}" class="btn-export">
+                <i class="fas fa-arrow-left"></i> Back to Dashboard
+            </a>
+        </div>
+    </div>
+
+    <!-- Statistics Grid -->
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-value">{{ batch.total_points }}</div>
+            <div class="stat-label">Total Points</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value" style="color: #00cc44;">{{ batch.operational_predicted }}</div>
+            <div class="stat-label">Operational</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value" style="color: #ff4444;">{{ batch.non_operational_predicted }}</div>
+            <div class="stat-label">Non-Operational</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value">{{ batch.results_summary.avg_probability|default:"-" }}</div>
+            <div class="stat-label">Avg Probability</div>
+        </div>
+    </div>
+
+    <!-- Map Container -->
+    <div class="map-container" id="resultsMap"></div>
+
+    <!-- Detailed Statistics -->
+    {% if batch.results_summary %}
+    <div class="info-card">
+        <h5 class="mb-3"><i class="fas fa-chart-line me-2"></i>Detailed Statistics</h5>
+        <div class="info-grid">
+            <div class="info-item">
+                <strong>Success Rate:</strong> 
+                <span class="probability-high">{{ batch.results_summary.operational_percent|default:"0" }}%</span>
+            </div>
+            <div class="info-item">
+                <strong>High Confidence:</strong> 
+                <span class="probability-high">{{ batch.results_summary.high_confidence|default:"0" }}</span>
+            </div>
+            <div class="info-item">
+                <strong>Medium Confidence:</strong> 
+                <span class="probability-medium">{{ batch.results_summary.medium_confidence|default:"0" }}</span>
+            </div>
+            <div class="info-item">
+                <strong>Low Confidence:</strong> 
+                <span class="probability-low">{{ batch.results_summary.low_confidence|default:"0" }}</span>
+            </div>
+            <div class="info-item">
+                <strong>Average Probability:</strong> 
+                <span>{{ batch.results_summary.avg_probability|default:"0" }}</span>
+            </div>
+            <div class="info-item">
+                <strong>Std Deviation:</strong> 
+                <span>{{ batch.results_summary.std_probability|default:"0" }}</span>
+            </div>
+            <div class="info-item">
+                <strong>Min Probability:</strong> 
+                <span class="probability-low">{{ batch.results_summary.min_probability|default:"0" }}</span>
+            </div>
+            <div class="info-item">
+                <strong>Max Probability:</strong> 
+                <span class="probability-high">{{ batch.results_summary.max_probability|default:"0" }}</span>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Points Table -->
+    <div class="info-card">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h5><i class="fas fa-list me-2"></i>Predicted Points ({{ points|length }})</h5>
+            <div class="export-buttons">
+                <button class="btn-export" onclick="exportPoints('csv')">
+                    <i class="fas fa-file-csv"></i> CSV
+                </button>
+                <button class="btn-export" onclick="exportPoints('geojson')">
+                    <i class="fas fa-map"></i> GeoJSON
+                </button>
+            </div>
+        </div>
+        <div class="table-responsive">
+            <table class="points-table">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Location</th>
+                        <th>Sub-County</th>
+                        <th>Ward</th>
+                        <th>Actual Status</th>
+                        <th>Predicted</th>
+                        <th>Probability</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for point in points %}
+                    <tr>
+                        <td>{{ point.name|default:point.locality|truncatechars:20 }}</td>
+                        <td>
+                            <small>{{ point.latitude|floatformat:4 }}, {{ point.longitude|floatformat:4 }}</small>
+                        </td>
+                        <td>{{ point.sub_county.subcounty|default:"-" }}</td>
+                        <td>{{ point.ward.ward|default:"-" }}</td>
+                        <td>
+                            <span class="badge {% if point.status == 'operational' %}badge-success{% elif point.status == 'non_operational' %}badge-danger{% else %}badge-warning{% endif %}">
+                                {{ point.get_status_display }}
+                            </span>
+                        </td>
+                        <td>
+                            <span class="badge {% if point.predicted_status == 'operational' %}badge-success{% else %}badge-danger{% endif %}">
+                                {{ point.predicted_status|title }}
+                            </span>
+                        </td>
+                        <td>
+                            <span class="{% if point.prediction_probability > 0.7 %}probability-high{% elif point.prediction_probability > 0.4 %}probability-medium{% else %}probability-low{% endif %}">
+                                {{ point.prediction_probability|floatformat:3 }}
+                            </span>
+                        </td>
+                        <td>
+                            <button class="view-on-map-btn" onclick="viewOnMap({{ point.latitude }}, {{ point.longitude }})">
+                                <i class="fas fa-map-marker-alt"></i> View
+                            </button>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="8" class="text-center text-muted">No points found in this batch</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+    let resultsMap;
+
+    document.addEventListener('DOMContentLoaded', function() {
+        initMap();
+    });
+
+    function initMap() {
+        resultsMap = L.map('resultsMap').setView([3.5, 35.8], 7);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap'
+        }).addTo(resultsMap);
+
+        // Add points from the batch
+        {% for point in points %}
+            {% if point.latitude and point.longitude %}
+                L.circleMarker([{{ point.latitude }}, {{ point.longitude }}], {
+                    radius: 8,
+                    fillColor: '{% if point.predicted_status == "operational" %}#00cc44{% else %}#ff4444{% endif %}',
+                    color: '#fff',
+                    weight: 2,
+                    fillOpacity: 0.9
+                }).addTo(resultsMap)
+                .bindPopup(`
+                    <b>{{ point.name|default:point.locality }}</b><br>
+                    Status: {{ point.get_status_display }}<br>
+                    Predicted: {{ point.predicted_status|title }}<br>
+                    Probability: {{ point.prediction_probability|floatformat:3 }}
+                `);
+            {% endif %}
+        {% endfor %}
+    }
+
+    function viewOnMap(lat, lng) {
+        window.open(`/map/?lat=${lat}&lng=${lng}&zoom=15`, '_blank');
+    }
+
+    function exportPoints(format) {
+        const batchId = {{ batch.id }};
+        let url = `/export-data/?batch_id=${batchId}`;
+        
+        if (format === 'geojson') {
+            url += '&format=geojson';
+        }
+        
+        window.location.href = url;
+    }
+</script>
+{% endblock %}

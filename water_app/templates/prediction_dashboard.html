@@ -1,0 +1,1605 @@
+<!-- templates/prediction_dashboard.html -->
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}ML Prediction Dashboard - WaterPoint AI{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<link rel="stylesheet" href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css" />
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.css">
+<style>
+    .prediction-container {
+        padding: 2rem;
+        max-width: 1600px;
+        margin: 0 auto;
+    }
+
+    /* Stats Grid */
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 1.5rem;
+        margin-bottom: 2rem;
+    }
+
+    .metric-card {
+        background: rgba(255,255,255,0.05);
+        border-radius: 20px;
+        padding: 1.5rem;
+        border: 1px solid rgba(255,255,255,0.1);
+        transition: all 0.3s ease;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .metric-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 4px;
+        background: linear-gradient(90deg, var(--primary), var(--secondary));
+        transform: translateX(-100%);
+        transition: transform 0.6s ease;
+    }
+
+    .metric-card:hover::before {
+        transform: translateX(0);
+    }
+
+    .metric-card:hover {
+        transform: translateY(-5px);
+        border-color: var(--primary);
+        box-shadow: 0 10px 30px rgba(0,102,204,0.2);
+    }
+
+    .metric-title {
+        color: rgba(255,255,255,0.7);
+        font-size: 0.9rem;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        margin-bottom: 0.5rem;
+    }
+
+    .metric-value {
+        font-size: 2.5rem;
+        font-weight: 700;
+        color: var(--primary-light);
+    }
+
+    /* Feature Importance */
+    .feature-importance {
+        background: rgba(255,255,255,0.03);
+        border-radius: 12px;
+        padding: 1rem;
+        margin-bottom: 0.5rem;
+        display: flex;
+        align-items: center;
+        transition: all 0.3s ease;
+    }
+
+    .feature-importance:hover {
+        background: rgba(255,255,255,0.08);
+        transform: translateX(5px);
+    }
+
+    .feature-name {
+        flex: 1;
+        font-weight: 500;
+    }
+
+    .importance-bar {
+        width: 200px;
+        height: 8px;
+        background: rgba(255,255,255,0.1);
+        border-radius: 4px;
+        overflow: hidden;
+        margin: 0 1rem;
+    }
+
+    .importance-fill {
+        height: 100%;
+        background: linear-gradient(90deg, var(--primary), var(--secondary));
+        border-radius: 4px;
+    }
+
+    .importance-value {
+        width: 60px;
+        text-align: right;
+        color: var(--primary-light);
+        font-weight: 600;
+    }
+
+    /* Batch Items */
+    .batch-item {
+        background: rgba(255,255,255,0.03);
+        border-radius: 16px;
+        padding: 1.2rem;
+        margin-bottom: 1rem;
+        border: 1px solid rgba(255,255,255,0.05);
+        cursor: pointer;
+        transition: all 0.3s;
+    }
+
+    .batch-item:hover {
+        background: rgba(255,255,255,0.08);
+        transform: translateX(5px);
+        border-color: var(--primary);
+    }
+
+    /* Badges */
+    .badge {
+        padding: 0.3rem 0.8rem;
+        border-radius: 20px;
+        font-size: 0.8rem;
+        font-weight: 600;
+    }
+
+    .badge-success { background: rgba(0,204,68,0.2); color: #00cc44; }
+    .badge-warning { background: rgba(255,170,0,0.2); color: #ffaa00; }
+    .badge-danger { background: rgba(255,68,68,0.2); color: #ff4444; }
+    .badge-info { background: rgba(51,181,229,0.2); color: #33b5e5; }
+
+    /* Probability Colors */
+    .probability-high { color: #00cc44; font-weight: 600; }
+    .probability-medium { color: #ffaa00; font-weight: 600; }
+    .probability-low { color: #ff4444; font-weight: 600; }
+
+    /* Tabs */
+    .tabs-container {
+        background: rgba(255,255,255,0.03);
+        border-radius: 16px;
+        padding: 0.5rem;
+        margin-bottom: 2rem;
+        display: flex;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+    }
+
+    .tab-button {
+        padding: 0.8rem 1.5rem;
+        border-radius: 12px;
+        background: transparent;
+        border: none;
+        color: rgba(255,255,255,0.7);
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .tab-button i {
+        font-size: 1.1rem;
+    }
+
+    .tab-button:hover {
+        background: rgba(255,255,255,0.1);
+        color: white;
+    }
+
+    .tab-button.active {
+        background: var(--gradient-primary);
+        color: white;
+        box-shadow: 0 5px 15px rgba(0,102,204,0.3);
+    }
+
+    .tab-content {
+        display: none;
+    }
+
+    .tab-content.active {
+        display: block;
+    }
+
+    /* Area Selection */
+    .area-selection {
+        background: rgba(255,255,255,0.03);
+        border-radius: 20px;
+        padding: 1.5rem;
+        margin-bottom: 2rem;
+        border: 2px dashed rgba(255,255,255,0.1);
+        transition: all 0.3s;
+    }
+
+    .area-selection:hover {
+        border-color: var(--primary);
+        background: rgba(0,102,204,0.05);
+    }
+
+    .area-selection.active {
+        border-color: var(--success);
+        background: rgba(0,204,68,0.05);
+    }
+
+    /* Mini Map */
+    .mini-map {
+        height: 300px;
+        border-radius: 16px;
+        overflow: hidden;
+        margin-bottom: 1.5rem;
+        border: 2px solid rgba(255,255,255,0.1);
+    }
+
+    /* Results Summary */
+    .results-summary {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1rem;
+        margin-bottom: 2rem;
+    }
+
+    .result-card {
+        background: rgba(255,255,255,0.05);
+        border-radius: 16px;
+        padding: 1.2rem;
+        text-align: center;
+    }
+
+    .result-value {
+        font-size: 2rem;
+        font-weight: 700;
+        margin-bottom: 0.3rem;
+    }
+
+    .result-label {
+        color: rgba(255,255,255,0.6);
+        font-size: 0.9rem;
+    }
+
+    /* Points Table */
+    .points-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    .points-table th {
+        background: rgba(0,0,0,0.3);
+        padding: 1rem;
+        text-align: left;
+        font-weight: 600;
+        color: rgba(255,255,255,0.9);
+        border-bottom: 2px solid rgba(255,255,255,0.1);
+    }
+
+    .points-table td {
+        padding: 1rem;
+        border-bottom: 1px solid rgba(255,255,255,0.05);
+    }
+
+    .points-table tr {
+        transition: all 0.3s;
+        cursor: pointer;
+    }
+
+    .points-table tr:hover {
+        background: rgba(255,255,255,0.08);
+    }
+
+    .view-on-map-btn {
+        padding: 0.3rem 0.8rem;
+        border-radius: 8px;
+        background: rgba(0,102,204,0.2);
+        color: var(--primary-light);
+        border: 1px solid rgba(0,102,204,0.3);
+        cursor: pointer;
+        transition: all 0.3s;
+        font-size: 0.8rem;
+    }
+
+    .view-on-map-btn:hover {
+        background: var(--primary);
+        color: white;
+    }
+
+    /* Confidence Indicators */
+    .confidence-high {
+        background: rgba(0,204,68,0.2);
+        color: #00cc44;
+        padding: 0.2rem 0.6rem;
+        border-radius: 20px;
+        font-size: 0.8rem;
+    }
+
+    .confidence-medium {
+        background: rgba(255,170,0,0.2);
+        color: #ffaa00;
+        padding: 0.2rem 0.6rem;
+        border-radius: 20px;
+        font-size: 0.8rem;
+    }
+
+    .confidence-low {
+        background: rgba(255,68,68,0.2);
+        color: #ff4444;
+        padding: 0.2rem 0.6rem;
+        border-radius: 20px;
+        font-size: 0.8rem;
+    }
+
+    /* Progress Bar */
+    .progress-bar {
+        height: 10px;
+        background: rgba(255,255,255,0.1);
+        border-radius: 5px;
+        overflow: hidden;
+        margin: 1rem 0;
+    }
+
+    .progress-fill {
+        height: 100%;
+        background: linear-gradient(90deg, var(--primary), var(--secondary));
+        border-radius: 5px;
+        transition: width 0.3s ease;
+    }
+
+    /* Buttons */
+    .btn-predict {
+        background: var(--gradient-primary);
+        color: white;
+        border: none;
+        padding: 1rem 2rem;
+        border-radius: 12px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s;
+        width: 100%;
+        font-size: 1.1rem;
+    }
+
+    .btn-predict:hover:not(:disabled) {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 30px rgba(0,102,204,0.4);
+    }
+
+    .btn-predict:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+
+    .btn-secondary {
+        background: rgba(255,255,255,0.1);
+        color: white;
+        border: 1px solid rgba(255,255,255,0.2);
+        padding: 0.8rem 1.5rem;
+        border-radius: 12px;
+        cursor: pointer;
+        transition: all 0.3s;
+        margin-right: 0.5rem;
+    }
+
+    .btn-secondary:hover {
+        background: rgba(255,255,255,0.15);
+    }
+
+    /* Charts */
+    .charts-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+        gap: 1.5rem;
+        margin-bottom: 2rem;
+    }
+
+    .chart-card {
+        background: rgba(255,255,255,0.03);
+        border-radius: 20px;
+        padding: 1.5rem;
+        border: 1px solid rgba(255,255,255,0.05);
+    }
+
+    .chart-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1rem;
+    }
+
+    .chart-header h6 {
+        font-size: 1rem;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .chart-container {
+        height: 250px;
+        position: relative;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="prediction-container">
+    <h2 class="mb-4">
+        <i class="fas fa-robot" style="color: var(--primary);"></i>
+        ML Prediction Dashboard
+        {% if model_ready %}
+        <span class="badge-success ms-3">Model Active</span>
+        {% else %}
+        <span class="badge-danger ms-3">Model Not Loaded</span>
+        {% endif %}
+    </h2>
+
+    <!-- Model Status Cards -->
+    <div class="stats-grid" id="modelStats">
+        <div class="metric-card">
+            <div class="metric-title">Model Status</div>
+            <div class="metric-value" id="modelStatus">Loading...</div>
+        </div>
+        <div class="metric-card">
+            <div class="metric-title">Features</div>
+            <div class="metric-value" id="nFeatures">-</div>
+        </div>
+        <div class="metric-card">
+            <div class="metric-title">Threshold</div>
+            <div class="metric-value" id="threshold">-</div>
+        </div>
+        <div class="metric-card">
+            <div class="metric-title">F1 Score</div>
+            <div class="metric-value" id="f1Score">-</div>
+        </div>
+        <div class="metric-card">
+            <div class="metric-title">ROC-AUC</div>
+            <div class="metric-value" id="rocAuc">-</div>
+        </div>
+        <div class="metric-card">
+            <div class="metric-title">Accuracy</div>
+            <div class="metric-value" id="accuracy">-</div>
+        </div>
+    </div>
+
+    <!-- Ensemble Weights -->
+    <div class="metric-card mb-4" id="weightsCard" style="display: none;">
+        <h5 class="mb-3">
+            <i class="fas fa-scale-balanced"></i>
+            Ensemble Weights
+        </h5>
+        <div class="row" id="weightsContainer"></div>
+    </div>
+
+    <!-- Tabs Navigation -->
+    <div class="tabs-container">
+        <button class="tab-button active" onclick="showTab('overview')">
+            <i class="fas fa-chart-pie"></i> Overview
+        </button>
+        <button class="tab-button" onclick="showTab('feature-importance')">
+            <i class="fas fa-chart-bar"></i> Feature Importance
+        </button>
+        <button class="tab-button" onclick="showTab('area-prediction')">
+            <i class="fas fa-draw-polygon"></i> Area Prediction
+        </button>
+        <button class="tab-button" onclick="showTab('suitable-locations')">
+            <i class="fas fa-map-pin"></i> Find Suitable Locations
+        </button>
+        <button class="tab-button" onclick="showTab('batch-prediction')">
+            <i class="fas fa-layer-group"></i> Batch Prediction
+        </button>
+        <button class="tab-button" onclick="showTab('history')">
+            <i class="fas fa-history"></i> History
+        </button>
+    </div>
+
+    <!-- Overview Tab -->
+    <div id="overview" class="tab-content active">
+        <div class="charts-grid">
+            <div class="chart-card">
+                <div class="chart-header">
+                    <h6><i class="fas fa-chart-pie"></i> Model Performance</h6>
+                    <span class="badge-info">Radar Chart</span>
+                </div>
+                <div class="chart-container">
+                    <canvas id="performanceChart"></canvas>
+                </div>
+            </div>
+            <div class="chart-card">
+                <div class="chart-header">
+                    <h6><i class="fas fa-info-circle"></i> Model Information</h6>
+                </div>
+                <div id="modelInfo" style="padding: 1rem;"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Feature Importance Tab -->
+    <div id="feature-importance" class="tab-content">
+        <div class="metric-card">
+            <h5 class="mb-3">
+                <i class="fas fa-chart-bar"></i>
+                Top 20 Feature Importances
+            </h5>
+            <div id="featureImportanceList" style="max-height: 500px; overflow-y: auto;"></div>
+        </div>
+    </div>
+
+    <!-- Area Prediction Tab -->
+    <div id="area-prediction" class="tab-content">
+        <div class="area-selection" id="areaSelection">
+            <h5 class="mb-3">
+                <i class="fas fa-draw-polygon"></i>
+                Select an Area for Prediction
+            </h5>
+            
+            <div class="row mb-3">
+                <div class="col-md-4">
+                    <label class="form-label">Selection Method</label>
+                    <select class="form-control" id="selectionMethod" onchange="toggleSelectionMethod()">
+                        <option value="draw">Draw Polygon</option>
+                        <option value="subcounty">Select Sub-County</option>
+                        <option value="ward">Select Ward</option>
+                    </select>
+                </div>
+                <div class="col-md-4" id="subcountySelector">
+                    <label class="form-label">Sub-County</label>
+                    <select class="form-control" id="areaSubcountySelect" onchange="loadSubcountyBoundary()">
+                        <option value="">Select Sub-County</option>
+                        {% for sc in subcounties %}
+                        <option value="{{ sc.id }}">{{ sc.subcounty }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-4" id="wardSelector" style="display: none;">
+                    <label class="form-label">Ward</label>
+                    <select class="form-control" id="areaWardSelect" onchange="loadWardBoundary()">
+                        <option value="">Select Ward</option>
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">&nbsp;</label>
+                    <button class="btn-secondary w-100" onclick="clearSelection()">
+                        <i class="fas fa-trash"></i> Clear Selection
+                    </button>
+                </div>
+            </div>
+
+            <div class="mini-map" id="predictionMap"></div>
+            
+            <button class="btn-predict mt-3" id="runAreaPrediction" onclick="runAreaPrediction()">
+                <i class="fas fa-play"></i> Predict Selected Area
+            </button>
+        </div>
+
+        <!-- Area Prediction Results -->
+        <div id="areaResults" style="display: none;">
+            <div class="metric-card mt-4">
+                <h5 class="mb-3">
+                    <i class="fas fa-chart-line"></i>
+                    Prediction Results
+                </h5>
+                
+                <div class="results-summary" id="areaSummary"></div>
+                
+                <div class="charts-grid">
+                    <div class="chart-card">
+                        <h6>Confidence Distribution</h6>
+                        <div class="chart-container">
+                            <canvas id="confidenceChart"></canvas>
+                        </div>
+                    </div>
+                    <div class="chart-card">
+                        <h6>Probability Distribution</h6>
+                        <div class="chart-container">
+                            <canvas id="probabilityChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <h6 class="mt-4 mb-3">Predicted Points</h6>
+                <div style="max-height: 400px; overflow-y: auto;">
+                    <table class="points-table">
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Status</th>
+                                <th>Probability</th>
+                                <th>Confidence</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="areaPredictionsList"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Suitable Locations Tab -->
+    <div id="suitable-locations" class="tab-content">
+        <div class="area-selection" id="suitableAreaSelection">
+            <h5 class="mb-3">
+                <i class="fas fa-map-pin"></i>
+                Find Optimal Locations for New Water Points
+            </h5>
+            
+            <div class="row mb-3">
+                <div class="col-md-3">
+                    <label class="form-label">Selection Method</label>
+                    <select class="form-control" id="suitableSelectionMethod" onchange="toggleSuitableSelectionMethod()">
+                        <option value="draw">Draw Polygon</option>
+                        <option value="subcounty">Select Sub-County</option>
+                    </select>
+                </div>
+                <div class="col-md-3" id="suitableSubcountySelector">
+                    <label class="form-label">Sub-County</label>
+                    <select class="form-control" id="suitableSubcountySelect" onchange="loadSuitableSubcountyBoundary()">
+                        <option value="">Select Sub-County</option>
+                        {% for sc in subcounties %}
+                        <option value="{{ sc.id }}">{{ sc.subcounty }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label"># Locations</label>
+                    <input type="number" class="form-control" id="nLocations" value="10" min="1" max="50">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Grid Spacing (km)</label>
+                    <input type="number" class="form-control" id="gridSpacing" value="2" min="1" max="10" step="0.5">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">&nbsp;</label>
+                    <button class="btn-secondary w-100" onclick="clearSuitableSelection()">
+                        <i class="fas fa-trash"></i> Clear
+                    </button>
+                </div>
+            </div>
+
+            <div class="mini-map" id="suitableMap"></div>
+            
+            <button class="btn-predict mt-3" id="findSuitableLocations" onclick="findSuitableLocations()">
+                <i class="fas fa-search"></i> Find Optimal Locations
+            </button>
+        </div>
+
+        <!-- Suitable Locations Results -->
+        <div id="suitableResults" style="display: none;">
+            <div class="metric-card mt-4">
+                <h5 class="mb-3">
+                    <i class="fas fa-trophy"></i>
+                    Top Optimal Locations
+                </h5>
+                
+                <div class="results-summary" id="suitableSummary"></div>
+                
+                <div style="max-height: 500px; overflow-y: auto;">
+                    <table class="points-table">
+                        <thead>
+                            <tr>
+                                <th>Rank</th>
+                                <th>Coordinates</th>
+                                <th>Probability</th>
+                                <th>Status</th>
+                                <th>Confidence</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="suitableLocationsList"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Batch Prediction Tab -->
+    <div id="batch-prediction" class="tab-content">
+        <div class="row">
+            <div class="col-md-4">
+                <div class="metric-card">
+                    <h5 class="mb-3">Configure Batch</h5>
+                    <form id="batchForm">
+                        {% csrf_token %}
+                        <div class="mb-3">
+                            <label class="form-label">Batch Name</label>
+                            <input type="text" class="form-control" id="batchName" 
+                                   placeholder="Enter batch name" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Sub-County</label>
+                            <select class="form-control" id="batchSubcountySelect">
+                                <option value="all">All Sub-Counties</option>
+                                {% for sc in subcounties %}
+                                <option value="{{ sc.id }}">{{ sc.subcounty }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Ward</label>
+                            <select class="form-control" id="batchWardSelect" disabled>
+                                <option value="all">All Wards</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Status Filter</label>
+                            <select class="form-control" id="batchStatusFilter">
+                                <option value="all">All Status</option>
+                                <option value="operational">Operational</option>
+                                <option value="non_operational">Non-Operational</option>
+                                <option value="unknown">Unknown</option>
+                            </select>
+                        </div>
+                        <button type="submit" class="btn-predict" id="startBatchBtn">
+                            <i class="fas fa-play"></i> Start Batch Prediction
+                        </button>
+                    </form>
+                </div>
+            </div>
+            <div class="col-md-8">
+                <div class="metric-card">
+                    <h5 class="mb-3">Batch Progress</h5>
+                    <div id="batchProgress" style="display: none;">
+                        <div class="progress-bar">
+                            <div class="progress-fill" id="progressFill" style="width: 0%;"></div>
+                        </div>
+                        <div class="row text-center mt-3">
+                            <div class="col">
+                                <div class="metric-value" id="processedCount">0</div>
+                                <div class="metric-title">Processed</div>
+                            </div>
+                            <div class="col">
+                                <div class="metric-value probability-high" id="batchOperationalCount">0</div>
+                                <div class="metric-title">Operational</div>
+                            </div>
+                            <div class="col">
+                                <div class="metric-value probability-low" id="batchNonOperationalCount">0</div>
+                                <div class="metric-title">Non-Op</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="batchResults" style="display: none;">
+                        <h6 class="mt-4 mb-3">Results Summary</h6>
+                        <div id="batchSummary"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- History Tab -->
+    <div id="history" class="tab-content">
+        <div class="metric-card">
+            <h5 class="mb-3">Recent Prediction Batches</h5>
+            <div id="recentBatches"></div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+<script>
+    // Global variables
+    let predictionMap, suitableMap;
+    let drawnItems, suitableDrawnItems;
+    let selectedGeometry = null;
+    let suitableGeometry = null;
+    let subcountyLayers = {};
+    let wardLayers = {};
+
+    document.addEventListener('DOMContentLoaded', function() {
+        loadModelInfo();
+        loadRecentBatches();
+        setupWardDropdown();
+        initializeMaps();
+        loadSubcountyBoundaries();
+    });
+
+    function initializeMaps() {
+        // Initialize Prediction Map
+        predictionMap = L.map('predictionMap').setView([3.5, 35.8], 7);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap'
+        }).addTo(predictionMap);
+
+        // Initialize draw control
+        drawnItems = new L.FeatureGroup().addTo(predictionMap);
+        
+        const drawControl = new L.Control.Draw({
+            draw: {
+                polygon: {
+                    shapeOptions: {
+                        color: '#0066cc',
+                        weight: 3,
+                        opacity: 1,
+                        fillOpacity: 0.2
+                    }
+                },
+                rectangle: {
+                    shapeOptions: {
+                        color: '#0066cc',
+                        weight: 3,
+                        opacity: 1,
+                        fillOpacity: 0.2
+                    }
+                },
+                circle: false,
+                marker: false,
+                circlemarker: false
+            },
+            edit: {
+                featureGroup: drawnItems
+            }
+        });
+        predictionMap.addControl(drawControl);
+
+        predictionMap.on(L.Draw.Event.CREATED, function(event) {
+            drawnItems.clearLayers();
+            drawnItems.addLayer(event.layer);
+            selectedGeometry = event.layer.toGeoJSON().geometry;
+            document.getElementById('areaSelection').classList.add('active');
+        });
+
+        // Initialize Suitable Locations Map
+        suitableMap = L.map('suitableMap').setView([3.5, 35.8], 7);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap'
+        }).addTo(suitableMap);
+
+        suitableDrawnItems = new L.FeatureGroup().addTo(suitableMap);
+        
+        const suitableDrawControl = new L.Control.Draw({
+            draw: {
+                polygon: {
+                    shapeOptions: {
+                        color: '#ff9900',
+                        weight: 3,
+                        opacity: 1,
+                        fillOpacity: 0.2
+                    }
+                },
+                rectangle: {
+                    shapeOptions: {
+                        color: '#ff9900',
+                        weight: 3,
+                        opacity: 1,
+                        fillOpacity: 0.2
+                    }
+                },
+                circle: false,
+                marker: false
+            },
+            edit: {
+                featureGroup: suitableDrawnItems
+            }
+        });
+        suitableMap.addControl(suitableDrawControl);
+
+        suitableMap.on(L.Draw.Event.CREATED, function(event) {
+            suitableDrawnItems.clearLayers();
+            suitableDrawnItems.addLayer(event.layer);
+            suitableGeometry = event.layer.toGeoJSON().geometry;
+            document.getElementById('suitableAreaSelection').classList.add('active');
+        });
+    }
+
+    function loadSubcountyBoundaries() {
+        fetch('/api/subcounties-geojson/')
+            .then(response => response.json())
+            .then(data => {
+                L.geoJSON(data, {
+                    style: {
+                        color: '#ff9900',
+                        weight: 2,
+                        opacity: 0.6,
+                        fillOpacity: 0.1,
+                        dashArray: '3, 5'
+                    },
+                    onEachFeature: function(feature, layer) {
+                        subcountyLayers[feature.id] = layer;
+                    }
+                }).addTo(predictionMap);
+
+                // Also add to suitable map
+                L.geoJSON(data, {
+                    style: {
+                        color: '#ff9900',
+                        weight: 2,
+                        opacity: 0.6,
+                        fillOpacity: 0.1,
+                        dashArray: '3, 5'
+                    }
+                }).addTo(suitableMap);
+            });
+    }
+
+    function toggleSelectionMethod() {
+        const method = document.getElementById('selectionMethod').value;
+        const subcountySelector = document.getElementById('subcountySelector');
+        const wardSelector = document.getElementById('wardSelector');
+        
+        if (method === 'draw') {
+            subcountySelector.style.display = 'block';
+            wardSelector.style.display = 'none';
+            document.getElementById('areaSubcountySelect').value = '';
+            document.getElementById('areaWardSelect').innerHTML = '<option value="">Select Ward</option>';
+            clearSelection();
+        } else if (method === 'subcounty') {
+            subcountySelector.style.display = 'block';
+            wardSelector.style.display = 'none';
+            document.getElementById('areaSubcountySelect').value = '';
+            clearSelection();
+        } else if (method === 'ward') {
+            subcountySelector.style.display = 'block';
+            wardSelector.style.display = 'block';
+            document.getElementById('areaSubcountySelect').value = '';
+            loadWardsForArea();
+        }
+    }
+
+    function loadWardsForArea() {
+        const subcountyId = document.getElementById('areaSubcountySelect').value;
+        if (!subcountyId) return;
+
+        fetch(`/api/wards-list/?subcounty_id=${subcountyId}`)
+            .then(response => response.json())
+            .then(data => {
+                const select = document.getElementById('areaWardSelect');
+                select.innerHTML = '<option value="">Select Ward</option>';
+                if (Array.isArray(data)) {
+                    data.forEach(w => {
+                        const option = document.createElement('option');
+                        option.value = w.id;
+                        option.textContent = w.name;
+                        select.appendChild(option);
+                    });
+                }
+            });
+    }
+
+    function loadSubcountyBoundary() {
+        const subcountyId = document.getElementById('areaSubcountySelect').value;
+        if (!subcountyId) return;
+
+        // Clear any drawn items
+        drawnItems.clearLayers();
+        
+        // Find and highlight the subcounty
+        const layer = subcountyLayers[subcountyId];
+        if (layer) {
+            const geojson = layer.toGeoJSON();
+            selectedGeometry = geojson.geometry;
+            L.geoJSON(geojson, {
+                style: {
+                    color: '#0066cc',
+                    weight: 4,
+                    opacity: 1,
+                    fillOpacity: 0.2
+                }
+            }).addTo(drawnItems);
+            
+            predictionMap.fitBounds(layer.getBounds());
+            document.getElementById('areaSelection').classList.add('active');
+        }
+
+        // Load wards for this subcounty
+        loadWardsForArea();
+    }
+
+    function loadWardBoundary() {
+        const wardId = document.getElementById('areaWardSelect').value;
+        if (!wardId) return;
+
+        fetch(`/api/wards-geojson/?ward_id=${wardId}`)
+            .then(response => response.json())
+            .then(data => {
+                drawnItems.clearLayers();
+                if (data.features && data.features.length > 0) {
+                    const layer = L.geoJSON(data, {
+                        style: {
+                            color: '#33b5e5',
+                            weight: 3,
+                            opacity: 1,
+                            fillOpacity: 0.2
+                        }
+                    }).addTo(drawnItems);
+                    
+                    selectedGeometry = data.features[0].geometry;
+                    predictionMap.fitBounds(layer.getBounds());
+                    document.getElementById('areaSelection').classList.add('active');
+                }
+            });
+    }
+
+    function toggleSuitableSelectionMethod() {
+        const method = document.getElementById('suitableSelectionMethod').value;
+        const selector = document.getElementById('suitableSubcountySelector');
+        
+        if (method === 'draw') {
+            selector.style.display = 'block';
+            clearSuitableSelection();
+        } else {
+            selector.style.display = 'block';
+            document.getElementById('suitableSubcountySelect').value = '';
+            clearSuitableSelection();
+        }
+    }
+
+    function loadSuitableSubcountyBoundary() {
+        const subcountyId = document.getElementById('suitableSubcountySelect').value;
+        if (!subcountyId) return;
+
+        suitableDrawnItems.clearLayers();
+        
+        const layer = subcountyLayers[subcountyId];
+        if (layer) {
+            const geojson = layer.toGeoJSON();
+            suitableGeometry = geojson.geometry;
+            L.geoJSON(geojson, {
+                style: {
+                    color: '#ff9900',
+                    weight: 4,
+                    opacity: 1,
+                    fillOpacity: 0.2
+                }
+            }).addTo(suitableDrawnItems);
+            
+            suitableMap.fitBounds(layer.getBounds());
+            document.getElementById('suitableAreaSelection').classList.add('active');
+        }
+    }
+
+    function clearSelection() {
+        drawnItems.clearLayers();
+        selectedGeometry = null;
+        document.getElementById('areaSelection').classList.remove('active');
+    }
+
+    function clearSuitableSelection() {
+        suitableDrawnItems.clearLayers();
+        suitableGeometry = null;
+        document.getElementById('suitableAreaSelection').classList.remove('active');
+    }
+
+    function loadModelInfo() {
+        fetch('/api/model-info/')
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'ready') {
+                    document.getElementById('modelStatus').innerHTML = 
+                        '<span style="color: #00cc44;">✓ Active</span>';
+                    document.getElementById('nFeatures').textContent = data.n_features || '-';
+                    document.getElementById('threshold').textContent = (data.threshold || 0).toFixed(3);
+                    document.getElementById('f1Score').textContent = (data.metrics?.f1_score || 0).toFixed(3);
+                    document.getElementById('rocAuc').textContent = (data.metrics?.roc_auc || 0).toFixed(3);
+                    document.getElementById('accuracy').textContent = (data.metrics?.accuracy || 0).toFixed(3);
+                    
+                    if (data.weights) {
+                        document.getElementById('weightsCard').style.display = 'block';
+                        document.getElementById('weightsContainer').innerHTML = `
+                            <div class="col-md-4 text-center">
+                                <div class="metric-value" style="font-size: 1.8rem; color: #00cc44;">${(data.weights[0]*100).toFixed(1)}%</div>
+                                <div class="metric-title">Random Forest</div>
+                            </div>
+                            <div class="col-md-4 text-center">
+                                <div class="metric-value" style="font-size: 1.8rem; color: #ffaa00;">${(data.weights[1]*100).toFixed(1)}%</div>
+                                <div class="metric-title">XGBoost</div>
+                            </div>
+                            <div class="col-md-4 text-center">
+                                <div class="metric-value" style="font-size: 1.8rem; color: #33b5e5;">${(data.weights[2]*100).toFixed(1)}%</div>
+                                <div class="metric-title">LightGBM</div>
+                            </div>
+                        `;
+                    }
+                    
+                    document.getElementById('modelInfo').innerHTML = `
+                        <table class="table">
+                            <tr><td><strong>Model Type:</strong></td><td>${data.model_type || 'Unknown'}</td></tr>
+                            <tr><td><strong>Trained:</strong></td><td>${data.training_info?.date_trained ? new Date(data.training_info.date_trained).toLocaleString() : 'N/A'}</td></tr>
+                            <tr><td><strong>Training Samples:</strong></td><td>${data.training_info?.n_samples || 'N/A'}</td></tr>
+                            <tr><td><strong>Positive Class Ratio:</strong></td><td>${((data.training_info?.positive_class_ratio || 0) * 100).toFixed(1)}%</td></tr>
+                        </table>
+                    `;
+                    
+                    if (data.metrics) {
+                        createPerformanceChart(data.metrics);
+                    }
+                    
+                    if (data.feature_importance_detailed) {
+                        displayFeatureImportance(data.feature_importance_detailed);
+                    } else if (data.feature_importance) {
+                        const detailed = Object.entries(data.feature_importance).map(([feature, importance]) => ({
+                            feature,
+                            importance,
+                            category: feature.includes('_') ? 'engineered' : 'base'
+                        }));
+                        displayFeatureImportance(detailed);
+                    }
+                } else {
+                    document.getElementById('modelStatus').innerHTML = 
+                        '<span style="color: #ff4444;">✗ Not Loaded</span>';
+                }
+            })
+            .catch(error => {
+                console.error('Error loading model info:', error);
+                document.getElementById('modelStatus').innerHTML = 
+                    '<span style="color: #ff4444;">✗ Error</span>';
+            });
+    }
+
+    function createPerformanceChart(metrics) {
+        const ctx = document.getElementById('performanceChart').getContext('2d');
+        new Chart(ctx, {
+            type: 'radar',
+            data: {
+                labels: ['Accuracy', 'Precision', 'Recall', 'F1 Score', 'ROC-AUC'],
+                datasets: [{
+                    label: 'Model Performance',
+                    data: [
+                        metrics.accuracy,
+                        metrics.precision,
+                        metrics.recall,
+                        metrics.f1_score,
+                        metrics.roc_auc
+                    ],
+                    backgroundColor: 'rgba(0,102,204,0.2)',
+                    borderColor: '#0066cc',
+                    pointBackgroundColor: '#0066cc'
+                }]
+            },
+            options: {
+                scales: {
+                    r: {
+                        beginAtZero: true,
+                        max: 1,
+                        grid: { color: 'rgba(255,255,255,0.1)' },
+                        pointLabels: { color: 'rgba(255,255,255,0.7)' }
+                    }
+                }
+            }
+        });
+    }
+
+    function displayFeatureImportance(features) {
+        const container = document.getElementById('featureImportanceList');
+        let html = '';
+        
+        features.slice(0, 20).forEach(f => {
+            const maxImportance = Math.max(...features.map(f => f.importance));
+            const percent = (f.importance / maxImportance * 100).toFixed(1);
+            html += `
+                <div class="feature-importance">
+                    <div class="feature-name">
+                        ${f.feature}
+                        <small class="text-muted">${f.category}</small>
+                    </div>
+                    <div class="importance-bar">
+                        <div class="importance-fill" style="width: ${percent}%;"></div>
+                    </div>
+                    <div class="importance-value">${f.importance.toFixed(2)}</div>
+                </div>
+            `;
+        });
+        
+        container.innerHTML = html;
+    }
+
+    function loadRecentBatches() {
+        fetch('/api/prediction-history/')
+            .then(response => response.json())
+            .then(data => {
+                const container = document.getElementById('recentBatches');
+                if (data.batches && data.batches.length > 0) {
+                    let html = '';
+                    data.batches.slice(0, 10).forEach(b => {
+                        const date = new Date(b.created_at).toLocaleString();
+                        const statusClass = b.status === 'completed' ? 'badge-success' : 
+                                          b.status === 'processing' ? 'badge-warning' : 'badge-danger';
+                        
+                        html += `
+                            <div class="batch-item" onclick="viewBatch(${b.id})">
+                                <div class="d-flex justify-content-between">
+                                    <div>
+                                        <h6>${b.name}</h6>
+                                        <small class="text-muted">${date}</small>
+                                    </div>
+                                    <div>
+                                        <span class="badge ${statusClass} me-2">${b.status}</span>
+                                        <span class="badge-info">${b.total_points} points</span>
+                                    </div>
+                                </div>
+                                <div class="mt-2">
+                                    <span class="probability-high">${b.operational_predicted} Op</span>
+                                    <span class="probability-low ms-3">${b.non_operational_predicted} Non</span>
+                                </div>
+                            </div>
+                        `;
+                    });
+                    container.innerHTML = html;
+                } else {
+                    container.innerHTML = '<p class="text-center text-muted">No batches yet</p>';
+                }
+            });
+    }
+
+    function setupWardDropdown() {
+        document.getElementById('batchSubcountySelect').addEventListener('change', function(e) {
+            const subcountyId = e.target.value;
+            const wardSelect = document.getElementById('batchWardSelect');
+            
+            if (subcountyId === 'all') {
+                wardSelect.innerHTML = '<option value="all">All Wards</option>';
+                wardSelect.disabled = true;
+                return;
+            }
+            
+            fetch(`/api/wards-list/?subcounty_id=${subcountyId}`)
+                .then(response => response.json())
+                .then(data => {
+                    wardSelect.innerHTML = '<option value="all">All Wards</option>';
+                    wardSelect.disabled = false;
+                    
+                    if (Array.isArray(data)) {
+                        data.forEach(w => {
+                            const option = document.createElement('option');
+                            option.value = w.id;
+                            option.textContent = w.name + (w.point_count ? ` (${w.point_count})` : '');
+                            wardSelect.appendChild(option);
+                        });
+                    }
+                });
+        });
+    }
+
+    function showTab(tabName) {
+        document.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'));
+        event.target.classList.add('active');
+        
+        document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
+        document.getElementById(tabName).classList.add('active');
+    }
+
+    function viewOnMap(lat, lng) {
+        window.location.href = `/map/?lat=${lat}&lng=${lng}&zoom=15`;
+    }
+
+    function viewBatch(batchId) {
+        window.location.href = `/batch-prediction/${batchId}/`;
+    }
+
+    function runAreaPrediction() {
+        if (!selectedGeometry) {
+            alert('Please select an area first (draw a polygon or select a sub-county/ward)');
+            return;
+        }
+
+        document.getElementById('runAreaPrediction').disabled = true;
+        document.getElementById('runAreaPrediction').innerHTML = '<i class="fas fa-spinner fa-spin"></i> Predicting...';
+
+        fetch('/api/predict-area/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify({
+                geometry: selectedGeometry,
+                include_features: true
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                displayAreaResults(data);
+            } else {
+                alert('Error: ' + (data.error || 'Unknown error'));
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Failed to run prediction');
+        })
+        .finally(() => {
+            document.getElementById('runAreaPrediction').disabled = false;
+            document.getElementById('runAreaPrediction').innerHTML = '<i class="fas fa-play"></i> Predict Selected Area';
+        });
+    }
+
+    function displayAreaResults(data) {
+        document.getElementById('areaResults').style.display = 'block';
+        
+        const summary = data.summary || {};
+        const threshold = data.threshold || 0.213;
+        
+        document.getElementById('areaSummary').innerHTML = `
+            <div class="result-card">
+                <div class="result-value">${summary.total || 0}</div>
+                <div class="result-label">Total Points</div>
+            </div>
+            <div class="result-card">
+                <div class="result-value probability-high">${summary.operational || 0}</div>
+                <div class="result-label">Operational</div>
+            </div>
+            <div class="result-card">
+                <div class="result-value probability-low">${summary.non_operational || 0}</div>
+                <div class="result-label">Non-Operational</div>
+            </div>
+            <div class="result-card">
+                <div class="result-value">${summary.operational_percent || 0}%</div>
+                <div class="result-label">Success Rate</div>
+            </div>
+        `;
+
+        // Confidence Distribution Chart
+        const confidenceCtx = document.getElementById('confidenceChart').getContext('2d');
+        new Chart(confidenceCtx, {
+            type: 'doughnut',
+            data: {
+                labels: ['High', 'Medium', 'Low'],
+                datasets: [{
+                    data: [summary.high_confidence || 0, summary.medium_confidence || 0, summary.low_confidence || 0],
+                    backgroundColor: ['#00cc44', '#ffaa00', '#ff4444']
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: { color: 'rgba(255,255,255,0.7)' }
+                    }
+                }
+            }
+        });
+
+        // Probability Distribution
+        if (data.predictions && data.predictions.length > 0) {
+            const probs = data.predictions.map(p => p.prediction?.probability || 0.5);
+            const bins = [0,0,0,0,0,0,0,0,0,0];
+            probs.forEach(p => {
+                const bin = Math.floor(p * 10);
+                if (bin >= 0 && bin < 10) bins[bin]++;
+            });
+
+            const probCtx = document.getElementById('probabilityChart').getContext('2d');
+            if (window.probChart) window.probChart.destroy();
+            window.probChart = new Chart(probCtx, {
+                type: 'bar',
+                data: {
+                    labels: ['0-0.1', '0.1-0.2', '0.2-0.3', '0.3-0.4', '0.4-0.5', '0.5-0.6', '0.6-0.7', '0.7-0.8', '0.8-0.9', '0.9-1.0'],
+                    datasets: [{
+                        label: 'Count',
+                        data: bins,
+                        backgroundColor: '#0066cc',
+                        borderRadius: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            grid: { color: 'rgba(255,255,255,0.1)' },
+                            ticks: { color: 'rgba(255,255,255,0.7)' }
+                        },
+                        x: {
+                            ticks: { color: 'rgba(255,255,255,0.7)' }
+                        }
+                    },
+                    plugins: {
+                        legend: { display: false }
+                    }
+                }
+            });
+        }
+
+        // Predictions List
+        const listHtml = data.predictions.slice(0, 20).map(p => `
+            <tr onclick="viewOnMap(${p.latitude || 0}, ${p.longitude || 0})">
+                <td>${p.name || 'Unnamed'}</td>
+                <td>
+                    <span class="${p.prediction?.status === 'operational' ? 'probability-high' : 'probability-low'}">
+                        ${p.prediction?.status || 'unknown'}
+                    </span>
+                </td>
+                <td class="${(p.prediction?.probability || 0) > threshold ? 'probability-high' : 'probability-low'}">
+                    ${((p.prediction?.probability || 0) * 100).toFixed(1)}%
+                </td>
+                <td>
+                    <span class="confidence-${p.prediction?.confidence || 'low'}">
+                        ${p.prediction?.confidence || 'low'}
+                    </span>
+                </td>
+                <td>
+                    <button class="view-on-map-btn" onclick="event.stopPropagation(); viewOnMap(${p.latitude || 0}, ${p.longitude || 0})">
+                        <i class="fas fa-map-marker-alt"></i> View
+                    </button>
+                </td>
+            </tr>
+        `).join('');
+        
+        document.getElementById('areaPredictionsList').innerHTML = listHtml || '<tr><td colspan="5" class="text-center">No predictions available</td></tr>';
+    }
+
+    function findSuitableLocations() {
+        if (!suitableGeometry) {
+            alert('Please select an area first (draw a polygon or select a sub-county)');
+            return;
+        }
+
+        const nLocations = document.getElementById('nLocations').value;
+        const gridSpacing = document.getElementById('gridSpacing').value;
+
+        document.getElementById('findSuitableLocations').disabled = true;
+        document.getElementById('findSuitableLocations').innerHTML = '<i class="fas fa-spinner fa-spin"></i> Analyzing...';
+
+        fetch('/api/predict-suitable/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify({
+                geometry: suitableGeometry,
+                n_locations: parseInt(nLocations),
+                grid_spacing: parseFloat(gridSpacing)
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                displaySuitableResults(data);
+            } else {
+                alert('Error: ' + (data.error || 'Unknown error'));
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Failed to find suitable locations');
+        })
+        .finally(() => {
+            document.getElementById('findSuitableLocations').disabled = false;
+            document.getElementById('findSuitableLocations').innerHTML = '<i class="fas fa-search"></i> Find Optimal Locations';
+        });
+    }
+
+    function displaySuitableResults(data) {
+        document.getElementById('suitableResults').style.display = 'block';
+        
+        document.getElementById('suitableSummary').innerHTML = `
+            <div class="result-card">
+                <div class="result-value">${data.n_analyzed}</div>
+                <div class="result-label">Locations Analyzed</div>
+            </div>
+            <div class="result-card">
+                <div class="result-value ${data.statistics.mean_probability > data.threshold ? 'probability-high' : 'probability-low'}">
+                    ${(data.statistics.mean_probability * 100).toFixed(1)}%
+                </div>
+                <div class="result-label">Avg Probability</div>
+            </div>
+            <div class="result-card">
+                <div class="result-value probability-high">${(data.statistics.max_probability * 100).toFixed(1)}%</div>
+                <div class="result-label">Max Probability</div>
+            </div>
+            <div class="result-card">
+                <div class="result-value">${data.statistics.locations_found}</div>
+                <div class="result-label">Optimal Locations</div>
+            </div>
+        `;
+
+        const listHtml = data.optimal_locations.map(loc => `
+            <tr>
+                <td>#${loc.rank}</td>
+                <td>${loc.latitude.toFixed(4)}, ${loc.longitude.toFixed(4)}</td>
+                <td class="${loc.score > data.threshold ? 'probability-high' : 'probability-low'}">
+                    ${(loc.score * 100).toFixed(1)}%
+                </td>
+                <td>
+                    <span class="${loc.category === 'HIGHLY SUITABLE' ? 'probability-high' : 
+                                loc.category === 'MODERATELY SUITABLE' ? 'probability-medium' : 
+                                'probability-low'}">
+                        ${loc.category}
+                    </span>
+                </td>
+                <td>
+                    <div class="small">
+                        ${loc.reasons.map(r => `<div>${r}</div>`).join('')}
+                    </div>
+                </td>
+                <td>
+                    <button class="view-on-map-btn" onclick="viewOnMap(${loc.latitude}, ${loc.longitude})">
+                        <i class="fas fa-map-marker-alt"></i> View
+                    </button>
+                </td>
+            </tr>
+        `).join('');
+        
+        document.getElementById('suitableLocationsList').innerHTML = listHtml;
+    }
+
+    document.getElementById('batchForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const batchName = document.getElementById('batchName').value;
+        const subcountyId = document.getElementById('batchSubcountySelect').value;
+        const wardId = document.getElementById('batchWardSelect').value;
+        const statusFilter = document.getElementById('batchStatusFilter').value;
+        
+        document.getElementById('batchProgress').style.display = 'block';
+        document.getElementById('startBatchBtn').disabled = true;
+        
+        fetch('/api/batch-prediction/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify({
+                name: batchName,
+                subcounty_id: subcountyId,
+                ward_id: wardId,
+                status: statusFilter
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            document.getElementById('startBatchBtn').disabled = false;
+            
+            if (data.success) {
+                document.getElementById('batchProgress').style.display = 'none';
+                document.getElementById('batchResults').style.display = 'block';
+                
+                document.getElementById('batchSummary').innerHTML = `
+                    <div class="results-summary">
+                        <div class="result-card">
+                            <div class="result-value">${data.summary.total}</div>
+                            <div class="result-label">Total</div>
+                        </div>
+                        <div class="result-card">
+                            <div class="result-value probability-high">${data.summary.operational}</div>
+                            <div class="result-label">Operational</div>
+                        </div>
+                        <div class="result-card">
+                            <div class="result-value probability-low">${data.summary.non_operational}</div>
+                            <div class="result-label">Non-Op</div>
+                        </div>
+                        <div class="result-card">
+                            <div class="result-value">${data.summary.operational_percent}%</div>
+                            <div class="result-label">Success Rate</div>
+                        </div>
+                    </div>
+                    <div class="mt-3">
+                        <p><strong>Average Probability:</strong> ${data.summary.avg_probability}</p>
+                        <p><strong>High Confidence:</strong> ${data.summary.high_confidence}</p>
+                        <p><strong>Medium Confidence:</strong> ${data.summary.medium_confidence}</p>
+                        <p><strong>Low Confidence:</strong> ${data.summary.low_confidence}</p>
+                    </div>
+                `;
+                
+                loadRecentBatches();
+            } else {
+                alert('Error: ' + (data.error || 'Unknown error'));
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Failed to run batch prediction');
+            document.getElementById('startBatchBtn').disabled = false;
+        });
+    });
+
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+    function viewOnMap(lat, lng) {
+        // Open the main map with the location centered
+        window.location.href = `/map/?lat=${lat}&lng=${lng}&zoom=15`;
+    }
+</script>
+{% endblock %}

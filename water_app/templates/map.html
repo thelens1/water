@@ -1,0 +1,2111 @@
+<!-- map.html -->
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Interactive Map - WaterPoint AI{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<link rel="stylesheet" href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css" />
+<link rel="stylesheet" href="https://unpkg.com/leaflet-fullscreen@1.0.2/dist/leaflet.fullscreen.css" />
+<link rel="stylesheet" href="https://unpkg.com/leaflet-measure@2.1.7/dist/leaflet-measure.css" />
+<link rel="stylesheet" href="https://unpkg.com/leaflet-easybutton@2.4.0/src/easy-button.css" />
+<style>
+    /* Map Container - Full Screen */
+    #map {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        z-index: 1;
+        background: #1a1a2e; /* Fallback color */
+    }
+
+    /* Theme Toggle */
+    .theme-toggle {
+        position: fixed;
+        top: 100px;
+        right: 380px;
+        z-index: 1000;
+        background: rgba(26, 26, 46, 0.9);
+        backdrop-filter: blur(10px);
+        border-radius: 30px;
+        padding: 0.5rem;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        display: flex;
+        gap: 0.3rem;
+    }
+
+    .theme-btn {
+        width: 40px;
+        height: 40px;
+        border-radius: 20px;
+        border: none;
+        background: rgba(255, 255, 255, 0.1);
+        color: white;
+        cursor: pointer;
+        transition: all 0.3s;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .theme-btn:hover {
+        background: var(--primary);
+        transform: scale(1.1);
+    }
+
+    .theme-btn.active {
+        background: var(--primary);
+    }
+
+    /* Control Panel - Top Right */
+    .control-panel {
+        position: fixed;
+        top: 80px;
+        right: 20px;
+        z-index: 1000;
+        background: rgba(26, 26, 46, 0.95);
+        backdrop-filter: blur(10px);
+        border-radius: 16px;
+        padding: 1.2rem;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        width: 340px;
+        color: white;
+        max-height: calc(100vh - 100px);
+        overflow-y: auto;
+    }
+
+    /* Light Theme */
+    body.light-theme .control-panel,
+    body.light-theme .map-controls,
+    body.light-theme .stats-panel,
+    body.light-theme .map-legend,
+    body.light-theme .theme-toggle {
+        background: rgba(255, 255, 255, 0.95);
+        color: #333;
+        border-color: rgba(0, 0, 0, 0.1);
+    }
+
+    body.light-theme .control-panel h5,
+    body.light-theme .stats-header h6,
+    body.light-theme .legend-header h6 {
+        color: #0066cc;
+    }
+
+    body.light-theme .filter-group label,
+    body.light-theme .stats-row .label {
+        color: #666;
+    }
+
+    body.light-theme .filter-group select,
+    body.light-theme .filter-group input,
+    body.light-theme .search-box input {
+        background: rgba(0, 0, 0, 0.05);
+        color: #333;
+        border-color: rgba(0, 0, 0, 0.1);
+    }
+
+    body.light-theme .stats-row .value {
+        color: #333;
+    }
+
+    body.light-theme .leaflet-popup-content-wrapper {
+        background: white;
+        color: #333;
+    }
+
+    body.light-theme .leaflet-popup-tip {
+        background: white;
+    }
+
+    /* Rest of your existing styles... */
+    .control-panel h5 {
+        font-size: 1.1rem;
+        font-weight: 700;
+        margin-bottom: 1rem;
+        padding-bottom: 0.5rem;
+        border-bottom: 1px solid rgba(255,255,255,0.1);
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .control-panel h5 i {
+        color: var(--primary-light);
+    }
+
+    .filter-group {
+        margin-bottom: 1rem;
+    }
+
+    .filter-group label {
+        display: block;
+        margin-bottom: 0.3rem;
+        font-size: 0.9rem;
+        color: rgba(255,255,255,0.7);
+    }
+
+    .filter-group select, .filter-group input {
+        width: 100%;
+        padding: 0.6rem;
+        border-radius: 8px;
+        border: 1px solid rgba(255,255,255,0.2);
+        background: rgba(0,0,0,0.3);
+        color: white;
+        font-size: 0.9rem;
+    }
+
+    .filter-group input::placeholder {
+        color: rgba(255,255,255,0.3);
+    }
+
+    .filter-group select option {
+        background: #1a1a2e;
+    }
+
+    .filter-row {
+        display: flex;
+        gap: 0.5rem;
+    }
+
+    .filter-row .filter-group {
+        flex: 1;
+    }
+
+    .search-box {
+        margin-bottom: 1rem;
+    }
+
+    .search-box input {
+        width: 100%;
+        padding: 0.6rem;
+        border-radius: 8px;
+        border: 1px solid rgba(255,255,255,0.2);
+        background: rgba(0,0,0,0.3);
+        color: white;
+        font-size: 0.9rem;
+        padding-left: 2rem;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='rgba(255,255,255,0.5)' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='11' cy='11' r='8'%3E%3C/circle%3E%3Cline x1='21' y1='21' x2='16.65' y2='16.65'%3E%3C/line%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: 0.5rem center;
+    }
+
+    .stats-row {
+        display: flex;
+        justify-content: space-between;
+        padding: 0.5rem 0;
+        border-bottom: 1px dashed rgba(255,255,255,0.1);
+        font-size: 0.9rem;
+    }
+
+    .stats-row .label {
+        color: rgba(255,255,255,0.6);
+    }
+
+    .stats-row .value {
+        font-weight: 600;
+    }
+
+    .value.operational { color: #00cc44; }
+    .value.non-operational { color: #ff4444; }
+    .value.unknown { color: #ffaa00; }
+
+    .btn-apply {
+        background: linear-gradient(135deg, #0066cc, #004999);
+        color: white;
+        border: none;
+        padding: 0.7rem;
+        border-radius: 8px;
+        width: 100%;
+        font-weight: 600;
+        margin-top: 0.5rem;
+        cursor: pointer;
+        transition: all 0.3s;
+    }
+
+    .btn-apply:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(0,102,204,0.4);
+    }
+
+    .btn-reset {
+        background: transparent;
+        color: white;
+        border: 1px solid rgba(255,255,255,0.2);
+        padding: 0.5rem;
+        border-radius: 8px;
+        width: 100%;
+        margin-top: 0.5rem;
+        cursor: pointer;
+        transition: all 0.3s;
+    }
+
+    .btn-reset:hover {
+        background: rgba(255,255,255,0.1);
+    }
+
+    /* Map Controls - Left Side */
+    .map-controls {
+        position: fixed;
+        top: 100px;
+        left: 20px;
+        z-index: 1000;
+        background: rgba(26, 26, 46, 0.9);
+        backdrop-filter: blur(10px);
+        border-radius: 30px;
+        padding: 0.8rem;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+
+    .control-btn {
+        width: 50px;
+        height: 50px;
+        border-radius: 25px;
+        border: none;
+        background: rgba(255, 255, 255, 0.1);
+        color: white;
+        font-size: 1.2rem;
+        transition: all 0.3s;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .control-btn:hover {
+        background: #0066cc;
+        transform: scale(1.1);
+    }
+
+    .control-btn.danger:hover { background: #ff4444; }
+    .control-btn.success:hover { background: #00cc44; }
+    .control-btn.info:hover { background: #33b5e5; }
+    .control-btn.warning:hover { background: #ffaa00; }
+
+    .map-controls hr {
+        margin: 0.5rem 0;
+        border-color: rgba(255, 255, 255, 0.1);
+        width: 100%;
+    }
+
+    /* Map Legend */
+    .map-legend {
+        position: fixed;
+        bottom: 30px;
+        right: 20px;
+        z-index: 1000;
+        background: rgba(26, 26, 46, 0.9);
+        backdrop-filter: blur(10px);
+        border-radius: 16px;
+        padding: 1rem;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        min-width: 220px;
+        color: white;
+    }
+
+    .legend-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 0.8rem;
+        cursor: pointer;
+    }
+
+    .legend-header h6 {
+        font-size: 0.95rem;
+        font-weight: 700;
+        margin: 0;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .legend-item {
+        display: flex;
+        align-items: center;
+        margin-bottom: 8px;
+        padding: 0.3rem;
+        border-radius: 6px;
+        transition: all 0.2s;
+    }
+
+    .legend-item:hover {
+        background: rgba(255,255,255,0.1);
+    }
+
+    .legend-color {
+        width: 16px;
+        height: 16px;
+        border-radius: 4px;
+        margin-right: 10px;
+    }
+
+    .legend-color.operational { background: #00cc44; }
+    .legend-color.non-operational { background: #ff4444; }
+    .legend-color.unknown { background: #ffaa00; }
+    .legend-color.county { background: transparent; border: 2px solid #0066cc; }
+    .legend-color.subcounty { background: transparent; border: 2px dashed #ff9900; }
+    .legend-color.ward { background: transparent; border: 2px dotted #33b5e5; }
+
+    .legend-text {
+        flex: 1;
+        font-size: 0.85rem;
+    }
+
+    /* Statistics Panel - Bottom Left */
+    .stats-panel {
+        position: fixed;
+        bottom: 30px;
+        left: 20px;
+        z-index: 1000;
+        background: rgba(26, 26, 46, 0.9);
+        backdrop-filter: blur(10px);
+        border-radius: 16px;
+        padding: 1rem;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        width: 280px;
+        color: white;
+    }
+
+    .stats-header {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 0.8rem;
+        padding-bottom: 0.5rem;
+        border-bottom: 1px solid rgba(255,255,255,0.1);
+    }
+
+    .stats-header i {
+        color: #4d94ff;
+    }
+
+    .stats-header h6 {
+        font-weight: 700;
+        margin: 0;
+        flex: 1;
+        font-size: 0.95rem;
+    }
+
+    .stats-toggle {
+        cursor: pointer;
+        width: 24px;
+        height: 24px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 50%;
+        background: rgba(255,255,255,0.1);
+    }
+
+    .stats-toggle:hover {
+        background: #0066cc;
+    }
+
+    /* Measurement Info */
+    .measurement-info {
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: rgba(26, 26, 46, 0.95);
+        backdrop-filter: blur(10px);
+        border-radius: 12px;
+        padding: 1rem;
+        border: 1px solid rgba(255,255,255,0.1);
+        color: white;
+        z-index: 2000;
+        display: none;
+        min-width: 250px;
+        text-align: center;
+        box-shadow: 0 25px 50px rgba(0,0,0,0.5);
+    }
+
+    .measurement-info.show {
+        display: block;
+        animation: fadeIn 0.3s;
+    }
+
+    .measurement-info h6 {
+        color: #4d94ff;
+        margin-bottom: 0.5rem;
+    }
+
+    .measurement-value {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: #ff9900;
+    }
+
+    /* Info Popup */
+    .info-popup {
+        position: fixed;
+        bottom: 30px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: rgba(26, 26, 46, 0.95);
+        backdrop-filter: blur(10px);
+        border-radius: 50px;
+        padding: 0.8rem 1.5rem;
+        border: 1px solid rgba(255,255,255,0.1);
+        color: white;
+        z-index: 1500;
+        display: none;
+        font-size: 0.9rem;
+        box-shadow: 0 5px 20px rgba(0,0,0,0.3);
+        animation: fadeInUp 0.3s;
+    }
+
+    .info-popup.show {
+        display: block;
+    }
+
+    /* Welcome Overlay */
+    .welcome-overlay {
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        z-index: 2000;
+        width: 90%;
+        max-width: 600px;
+        background: rgba(26, 26, 46, 0.98);
+        backdrop-filter: blur(20px);
+        border-radius: 24px;
+        box-shadow: 0 25px 50px rgba(0,0,0,0.5);
+        border: 1px solid rgba(255,255,255,0.1);
+        color: white;
+        padding: 2rem;
+        text-align: center;
+        animation: modalAppear 0.4s;
+    }
+
+    @keyframes modalAppear {
+        from {
+            opacity: 0;
+            transform: translate(-50%, -60%);
+        }
+        to {
+            opacity: 1;
+            transform: translate(-50%, -50%);
+        }
+    }
+
+    @keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+    }
+
+    @keyframes fadeInUp {
+        from {
+            opacity: 0;
+            transform: translate(-50%, 20px);
+        }
+        to {
+            opacity: 1;
+            transform: translate(-50%, 0);
+        }
+    }
+
+    .welcome-overlay h2 {
+        font-size: 2rem;
+        font-weight: 800;
+        margin-bottom: 1rem;
+        background: linear-gradient(135deg, #fff, #4d94ff);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+    }
+
+    .welcome-overlay p {
+        color: rgba(255,255,255,0.7);
+        margin-bottom: 2rem;
+    }
+
+    .welcome-btn {
+        background: linear-gradient(135deg, #0066cc, #004999);
+        color: white;
+        border: none;
+        padding: 1rem 2rem;
+        border-radius: 50px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s;
+        border: 1px solid rgba(255,255,255,0.2);
+    }
+
+    .welcome-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 20px rgba(0,102,204,0.4);
+    }
+
+    .close-welcome {
+        position: absolute;
+        top: 15px;
+        right: 15px;
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background: rgba(255,255,255,0.1);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: all 0.3s;
+        border: 1px solid rgba(255,255,255,0.2);
+    }
+
+    .close-welcome:hover {
+        background: #ff4444;
+        transform: rotate(90deg);
+    }
+
+    /* Feature List */
+    .feature-list {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 1rem;
+        margin: 1.5rem 0;
+        text-align: left;
+    }
+
+    .feature-item {
+        background: rgba(255,255,255,0.05);
+        border-radius: 12px;
+        padding: 0.8rem;
+        border: 1px solid rgba(255,255,255,0.05);
+    }
+
+    .feature-item i {
+        color: #00cc44;
+        margin-right: 0.5rem;
+    }
+
+    /* Leaflet Customization */
+    .leaflet-popup-content-wrapper {
+        background: rgba(26, 26, 46, 0.95);
+        backdrop-filter: blur(10px);
+        border-radius: 12px;
+        color: white;
+        border: 1px solid rgba(255,255,255,0.1);
+        box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+    }
+
+    .leaflet-popup-tip {
+        background: rgba(26, 26, 46, 0.95);
+    }
+
+    .leaflet-popup-content {
+        color: white;
+        font-family: 'Inter', sans-serif;
+        margin: 1rem;
+    }
+
+    .leaflet-control-attribution {
+        background: rgba(0,0,0,0.5);
+        color: rgba(255,255,255,0.5);
+        font-size: 0.7rem;
+        padding: 0.2rem 0.5rem;
+        border-radius: 20px 0 0 0;
+    }
+
+    .leaflet-control-attribution a {
+        color: #4d94ff;
+    }
+
+    /* Responsive */
+    @media (max-width: 1024px) {
+        .control-panel {
+            width: 300px;
+        }
+        .theme-toggle {
+            right: 340px;
+        }
+    }
+
+    @media (max-width: 768px) {
+        .control-panel {
+            top: 70px;
+            right: 10px;
+            width: 280px;
+            padding: 1rem;
+            max-height: calc(100vh - 80px);
+        }
+
+        .theme-toggle {
+            top: 70px;
+            right: 300px;
+        }
+
+        .map-controls {
+            top: auto;
+            bottom: 20px;
+            left: 10px;
+            flex-direction: row;
+            padding: 0.5rem;
+        }
+
+        .control-btn {
+            width: 40px;
+            height: 40px;
+            font-size: 1rem;
+        }
+
+        .stats-panel {
+            display: none;
+        }
+
+        .map-legend {
+            bottom: 20px;
+            right: 10px;
+            min-width: 160px;
+        }
+
+        .welcome-overlay {
+            width: 95%;
+            padding: 1.5rem;
+        }
+
+        .welcome-overlay h2 {
+            font-size: 1.5rem;
+        }
+
+        .feature-list {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    @media (max-width: 480px) {
+        .control-panel {
+            width: calc(100% - 20px);
+            right: 10px;
+            left: 10px;
+            top: 60px;
+        }
+
+        .theme-toggle {
+            top: 60px;
+            right: 10px;
+        }
+
+        .map-legend {
+            min-width: 140px;
+            padding: 0.8rem;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div id="map"></div>
+
+<!-- Theme Toggle -->
+<div class="theme-toggle">
+    <button class="theme-btn active" onclick="setTheme('dark')" title="Dark Theme">
+        <i class="fas fa-moon"></i>
+    </button>
+    <button class="theme-btn" onclick="setTheme('light')" title="Light Theme">
+        <i class="fas fa-sun"></i>
+    </button>
+</div>
+
+<!-- Welcome Overlay -->
+<div id="welcomeOverlay" class="welcome-overlay" style="display: none;">
+    <div class="close-welcome" onclick="closeWelcome()">
+        <i class="fas fa-times"></i>
+    </div>
+    <h2>Welcome to WaterPoint AI</h2>
+    <p>Intelligent Water Point Management System for Turkana County</p>
+    
+    <div class="feature-list">
+        <div class="feature-item">
+            <i class="fas fa-check-circle"></i>
+            <strong>{{ total_points|default:"1,059" }}+</strong> water points
+        </div>
+        <div class="feature-item">
+            <i class="fas fa-check-circle"></i>
+            <strong>{{ subcounty_count|default:"7" }}</strong> sub-counties
+        </div>
+        <div class="feature-item">
+            <i class="fas fa-check-circle"></i>
+            <strong>{{ ward_count|default:"30" }}</strong> wards
+        </div>
+        <div class="feature-item">
+            <i class="fas fa-check-circle"></i>
+            Real-time ML predictions
+        </div>
+        <div class="feature-item">
+            <i class="fas fa-check-circle"></i>
+            Distance & area measurement
+        </div>
+        <div class="feature-item">
+            <i class="fas fa-check-circle"></i>
+            Multiple base layers
+        </div>
+    </div>
+    
+    <button class="welcome-btn" onclick="closeWelcome()">
+        <i class="fas fa-rocket"></i> Start Exploring
+    </button>
+</div>
+
+<!-- Measurement Info Popup -->
+<div id="measurementInfo" class="measurement-info">
+    <h6 id="measurementTitle">Distance Measurement</h6>
+    <div class="measurement-value" id="measurementValue">0.00 km</div>
+    <div id="measurementSubvalue"></div>
+    <small id="measurementHint" style="color: rgba(255,255,255,0.5);">Click to add points, double-click to finish</small>
+</div>
+
+<!-- Info Popup -->
+<div id="infoPopup" class="info-popup">
+    <span id="infoMessage"></span>
+</div>
+
+<!-- Control Panel (Top Right) -->
+<div class="control-panel">
+    <h5>
+        <i class="fas fa-filter"></i>
+        Filter Water Points
+    </h5>
+    
+    <!-- Search Box -->
+    <div class="search-box">
+        <input type="text" id="searchInput" placeholder="Search by name or location..." onkeyup="if(event.key==='Enter') applyFilters()">
+    </div>
+    
+    <div class="filter-group">
+        <label><i class="fas fa-map"></i> Sub-County</label>
+        <select id="subcountySelect">
+            <option value="all">All Sub-Counties</option>
+        </select>
+    </div>
+    
+    <div class="filter-group">
+        <label><i class="fas fa-map-pin"></i> Ward</label>
+        <select id="wardSelect" disabled>
+            <option value="all">All Wards</option>
+        </select>
+    </div>
+    
+    <div class="filter-group">
+        <label><i class="fas fa-tag"></i> Status</label>
+        <select id="statusSelect">
+            <option value="all">All Status</option>
+            <option value="operational">Operational</option>
+            <option value="non_operational">Non-Operational</option>
+            <option value="unknown">Unknown</option>
+        </select>
+    </div>
+    
+    <div class="filter-row">
+        <div class="filter-group">
+            <label>Min Depth (m)</label>
+            <input type="number" id="minDepth" placeholder="0" step="0.1">
+        </div>
+        <div class="filter-group">
+            <label>Max Depth (m)</label>
+            <input type="number" id="maxDepth" placeholder="100" step="0.1">
+        </div>
+    </div>
+    
+    <button class="btn-apply" onclick="applyFilters()">
+        <i class="fas fa-search"></i> Apply Filters
+    </button>
+    <button class="btn-reset" onclick="resetFilters()">
+        <i class="fas fa-redo"></i> Reset
+    </button>
+    
+    <div style="margin-top: 1rem; padding-top: 0.5rem; border-top: 1px solid rgba(255,255,255,0.1);">
+        <div class="stats-row">
+            <span class="label"><i class="fas fa-droplet"></i> Total Points</span>
+            <span class="value" id="totalPoints">{{ total_points|default:"0" }}</span>
+        </div>
+        <div class="stats-row">
+            <span class="label"><i class="fas fa-check-circle"></i> Operational</span>
+            <span class="value operational" id="operationalPoints">{{ operational_count|default:"0" }}</span>
+        </div>
+        <div class="stats-row">
+            <span class="label"><i class="fas fa-times-circle"></i> Non-Operational</span>
+            <span class="value non-operational" id="nonOperationalPoints">{{ non_operational_count|default:"0" }}</span>
+        </div>
+        <div class="stats-row">
+            <span class="label"><i class="fas fa-question-circle"></i> Unknown</span>
+            <span class="value unknown" id="unknownPoints">{{ unknown_count|default:"0" }}</span>
+        </div>
+    </div>
+</div>
+
+<!-- Map Controls (Left Side) -->
+<div class="map-controls">
+    <button class="control-btn" onclick="zoomToCounty()" title="Zoom to County">
+        <i class="fas fa-globe-africa"></i>
+    </button>
+    <button class="control-btn" onclick="toggleSubcounties()" title="Toggle Sub-Counties">
+        <i class="fas fa-layer-group"></i>
+    </button>
+    <button class="control-btn" onclick="toggleWards()" title="Toggle Wards">
+        <i class="fas fa-border-all"></i>
+    </button>
+    <button class="control-btn success" onclick="addWaterPoint()" title="Add Water Point">
+        <i class="fas fa-plus"></i>
+    </button>
+    <button class="control-btn info" onclick="locateMe()" title="My Location">
+        <i class="fas fa-location-dot"></i>
+    </button>
+    <hr>
+    <button class="control-btn" id="measureDistanceBtn" onclick="startDistanceMeasurement()" title="Measure Distance">
+        <i class="fas fa-ruler"></i>
+    </button>
+    <button class="control-btn" id="measureAreaBtn" onclick="startAreaMeasurement()" title="Measure Area">
+        <i class="fas fa-draw-polygon"></i>
+    </button>
+    <button class="control-btn warning" onclick="clearMeasurements()" title="Clear Measurements">
+        <i class="fas fa-eraser"></i>
+    </button>
+    <hr>
+    <button class="control-btn" onclick="toggleFullscreen()" title="Fullscreen">
+        <i class="fas fa-expand"></i>
+    </button>
+    <button class="control-btn" onclick="toggleLayerControl()" title="Layers">
+        <i class="fas fa-layer-group"></i>
+    </button>
+</div>
+
+<!-- Statistics Panel (Bottom Left) -->
+<div class="stats-panel">
+    <div class="stats-header">
+        <i class="fas fa-chart-bar"></i>
+        <h6>Turkana County</h6>
+        <span class="stats-toggle" onclick="toggleStats()">
+            <i class="fas fa-minus" id="statsToggleIcon"></i>
+        </span>
+    </div>
+    <div id="statsContent">
+        <div class="stats-row">
+            <span class="label">Sub-Counties</span>
+            <span class="value">{{ subcounty_count|default:"7" }}</span>
+        </div>
+        <div class="stats-row">
+            <span class="label">Wards</span>
+            <span class="value">{{ ward_count|default:"30" }}</span>
+        </div>
+        <div class="stats-row">
+            <span class="label">Water Points</span>
+            <span class="value">{{ total_points|default:"1,059" }}</span>
+        </div>
+        <div class="stats-row">
+            <span class="label">Success Rate</span>
+            <span class="value primary">{{ success_rate|default:"5.8" }}%</span>
+        </div>
+        <div class="stats-row">
+            <span class="label">Avg Depth</span>
+            <span class="value" id="avgDepth">{{ avg_depth|default:"-" }}</span>
+        </div>
+        <div class="stats-row">
+            <span class="label">Avg Yield</span>
+            <span class="value" id="avgYield">{{ avg_yield|default:"-" }}</span>
+        </div>
+    </div>
+</div>
+
+<!-- Map Legend (Bottom Right) -->
+<div class="map-legend">
+    <div class="legend-header" onclick="toggleLegend()">
+        <h6>
+            <i class="fas fa-map-signs"></i>
+            Legend
+        </h6>
+        <span class="legend-toggle">
+            <i class="fas fa-minus" id="legendToggleIcon"></i>
+        </span>
+    </div>
+    <div class="legend-items" id="legendItems">
+        <div class="legend-item">
+            <div class="legend-color operational"></div>
+            <span class="legend-text">Operational</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-color non-operational"></div>
+            <span class="legend-text">Non-Operational</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-color unknown"></div>
+            <span class="legend-text">Unknown</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-color county"></div>
+            <span class="legend-text">County Boundary</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-color subcounty"></div>
+            <span class="legend-text">Sub-County</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-color ward"></div>
+            <span class="legend-text">Ward</span>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<!-- Load Leaflet first -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.js"></script>
+<script src="https://unpkg.com/leaflet-fullscreen@1.0.2/dist/leaflet.fullscreen.min.js"></script>
+<script src="https://unpkg.com/leaflet-measure@2.1.7/dist/leaflet-measure.min.js"></script>
+<script src="https://unpkg.com/leaflet-easybutton@2.4.0/src/easy-button.js"></script>
+
+<script>
+// ==================== INITIALIZATION ====================
+// Check if L is defined
+if (typeof L === 'undefined') {
+    console.error('Leaflet failed to load');
+} else {
+    console.log('Leaflet loaded successfully');
+}
+
+// County bounds from backend
+const countyBounds = {{ county_bounds|safe }};
+
+// State variables - Define these BEFORE they're used
+let subcountiesVisible = true;
+let wardsVisible = false;
+let measurementMode = null;
+let measurementPoints = [];
+let measurementLines = [];
+let measurementPolygon = null;
+
+// Initialize map
+const map = L.map('map', {
+    center: countyBounds ? 
+        [(countyBounds.min_lat + countyBounds.max_lat)/2, (countyBounds.min_lng + countyBounds.max_lng)/2] : 
+        [3.5, 35.8],
+    zoom: countyBounds ? 8 : 7,
+    zoomControl: true,
+    fadeAnimation: true,
+    zoomAnimation: true,
+    fullscreenControl: true
+});
+
+// Add initial tile layer to see something
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© OpenStreetMap',
+    maxZoom: 19
+}).addTo(map);
+
+// Base layers
+const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© OpenStreetMap',
+    maxZoom: 19
+});
+
+const googleStreets = L.tileLayer('https://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', {
+    maxZoom: 20,
+    subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
+    attribution: '© Google'
+});
+
+const googleSatellite = L.tileLayer('https://{s}.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', {
+    maxZoom: 20,
+    subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
+    attribution: '© Google'
+});
+
+const googleHybrid = L.tileLayer('https://{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', {
+    maxZoom: 20,
+    subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
+    attribution: '© Google'
+});
+
+const satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+    attribution: '© Esri',
+    maxZoom: 18
+});
+
+const terrainLayer = L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
+    attribution: '© OpenTopoMap',
+    maxZoom: 17
+});
+
+// Feature groups
+const countyLayer = L.layerGroup().addTo(map);
+const subcountyLayer = L.layerGroup().addTo(map);
+const wardLayer = L.layerGroup().addTo(map);
+const waterPointsLayer = L.layerGroup().addTo(map);
+const drawLayer = L.featureGroup().addTo(map);
+
+// Layer control
+const baseMaps = {
+    'OpenStreetMap': osmLayer,
+    'Google Streets': googleStreets,
+    'Google Satellite': googleSatellite,
+    'Google Hybrid': googleHybrid,
+    'Esri Satellite': satelliteLayer,
+    'OpenTopoMap': terrainLayer
+};
+
+const overlayMaps = {
+    'Water Points': waterPointsLayer,
+    'Sub-Counties': subcountyLayer,
+    'Wards': wardLayer,
+    'County': countyLayer,
+    'Drawings': drawLayer
+};
+
+// Add OpenStreetMap as default
+osmLayer.addTo(map);
+
+const layerControl = L.control.layers(baseMaps, overlayMaps, { 
+    position: 'topright',
+    collapsed: true
+}).addTo(map);
+
+// Scale bar
+L.control.scale({ 
+    imperial: false, 
+    metric: true, 
+    position: 'bottomleft' 
+}).addTo(map);
+
+// Draw control
+const drawControl = new L.Control.Draw({
+    draw: {
+        polygon: {
+            shapeOptions: {
+                color: '#0066cc',
+                weight: 3,
+                opacity: 1,
+                fillOpacity: 0.2
+            },
+            showArea: true
+        },
+        rectangle: {
+            shapeOptions: {
+                color: '#0066cc',
+                weight: 3,
+                opacity: 1,
+                fillOpacity: 0.2
+            }
+        },
+        circle: {
+            shapeOptions: {
+                color: '#0066cc',
+                weight: 3,
+                opacity: 1,
+                fillOpacity: 0.2
+            }
+        },
+        polyline: {
+            shapeOptions: {
+                color: '#ff9900',
+                weight: 4
+            }
+        },
+        marker: true,
+        circlemarker: false
+    },
+    edit: {
+        featureGroup: drawLayer,
+        remove: true
+    }
+});
+map.addControl(drawControl);
+
+// ==================== CSRF TOKEN HELPER ====================
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+// ==================== THEME FUNCTIONS ====================
+function setTheme(theme) {
+    const body = document.body;
+    const themeBtns = document.querySelectorAll('.theme-btn');
+    
+    if (theme === 'light') {
+        body.classList.add('light-theme');
+        themeBtns[0].classList.remove('active');
+        themeBtns[1].classList.add('active');
+        localStorage.setItem('theme', 'light');
+    } else {
+        body.classList.remove('light-theme');
+        themeBtns[0].classList.add('active');
+        themeBtns[1].classList.remove('active');
+        localStorage.setItem('theme', 'dark');
+    }
+}
+
+// Load saved theme
+const savedTheme = localStorage.getItem('theme') || 'dark';
+setTheme(savedTheme);
+
+// ==================== WELCOME OVERLAY ====================
+function showWelcome() {
+    document.getElementById('welcomeOverlay').style.display = 'block';
+}
+
+function closeWelcome() {
+    document.getElementById('welcomeOverlay').style.display = 'none';
+    localStorage.setItem('welcomeSeen', 'true');
+    loadWaterPoints();
+    loadSubcounties();
+    loadCountyBoundary();
+}
+
+// Check if welcome should be shown
+if (!localStorage.getItem('welcomeSeen')) {
+    showWelcome();
+} else {
+    // Load data immediately
+    loadCountyBoundary();
+    loadSubcounties();
+    loadWaterPoints();
+}
+
+// ==================== DATA LOADING FUNCTIONS ====================
+function loadCountyBoundary() {
+    fetch('/api/county-boundary/')
+        .then(response => response.json())
+        .then(data => {
+            countyLayer.clearLayers();
+            if (data.features && data.features.length > 0) {
+                L.geoJSON(data, {
+                    style: {
+                        color: '#0066cc',
+                        weight: 4,
+                        opacity: 1,
+                        fillOpacity: 0.1,
+                        dashArray: '5, 5'
+                    },
+                    onEachFeature: function(feature, layer) {
+                        const props = feature.properties;
+                        layer.bindPopup(`
+                            <div style="color: white;">
+                                <h6 style="color: #0066cc; margin-bottom: 5px;">${props.county || 'Turkana County'}</h6>
+                                <hr style="border-color: rgba(255,255,255,0.1); margin: 5px 0;">
+                                <p><strong>Population:</strong> ${props.pop_2009?.toLocaleString() || 'N/A'}</p>
+                                <p><strong>Country:</strong> ${props.country || 'Kenya'}</p>
+                            </div>
+                        `);
+                    }
+                }).addTo(countyLayer);
+                
+                // Fit map to county bounds if not already set
+                if (!countyBounds) {
+                    const bounds = L.geoJSON(data).getBounds();
+                    map.fitBounds(bounds, { padding: [20, 20] });
+                }
+            }
+        })
+        .catch(error => console.error('Error loading county:', error));
+}
+
+function loadSubcounties() {
+    console.log('Loading subcounties...');
+    
+    fetch('/api/subcounties-geojson/')
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            console.log('Subcounties data received:', data);
+            subcountyLayer.clearLayers();
+            
+            if (!data.features || data.features.length === 0) {
+                console.log('No subcounties found');
+                return;
+            }
+            
+            L.geoJSON(data, {
+                style: {
+                    color: '#ff9900',
+                    weight: 2,
+                    opacity: 0.8,
+                    fillOpacity: 0.1,
+                    dashArray: '3, 5'
+                },
+                onEachFeature: function(feature, layer) {
+                    const props = feature.properties;
+                    
+                    // Store feature data
+                    layer.feature = feature;
+                    
+                    // Get actual water point counts from the data
+                    const pointCount = props.point_count || 0;
+                    const operationalCount = props.operational_count || 0;
+                    const successRate = pointCount > 0 ? Math.round((operationalCount / pointCount) * 100) : 0;
+                    
+                    // Add click handler for spatial query
+                    layer.on('click', function(e) {
+                        console.log('Subcounty clicked:', props);
+                        
+                        // Get the geometry
+                        const geometry = layer.toGeoJSON().geometry;
+                        
+                        // Query points within this polygon
+                        queryPointsInPolygon(geometry, props.name || 'Selected Sub-County');
+                        
+                        // Also zoom to the polygon
+                        map.fitBounds(layer.getBounds(), { padding: [20, 20] });
+                    });
+                    
+                    // Keep the popup for backward compatibility
+                    layer.bindPopup(`
+                        <div style="color: white;">
+                            <h6 style="color: #ff9900; margin-bottom: 5px;">${props.name || 'Sub-County'}</h6>
+                            <hr style="border-color: rgba(255,255,255,0.1); margin: 5px 0;">
+                            <p><strong>Water Points:</strong> ${pointCount}</p>
+                            <p><strong>Operational:</strong> ${operationalCount}</p>
+                            <p><strong>Non-Operational:</strong> ${props.non_operational_count || 0}</p>
+                            <p><strong>Success Rate:</strong> ${successRate}%</p>
+                            <p><strong>Area:</strong> ${props.area ? props.area.toFixed(2) + ' km²' : 'N/A'}</p>
+                            <p><strong>Population:</strong> ${props.population?.toLocaleString() || 'N/A'}</p>
+                            <p><em>Click for detailed spatial analysis</em></p>
+                        </div>
+                    `);
+                }
+            }).addTo(subcountyLayer);
+            
+            // Populate subcounty dropdown
+            const select = document.getElementById('subcountySelect');
+            select.innerHTML = '<option value="all">All Sub-Counties</option>';
+            
+            data.features.forEach(f => {
+                const option = document.createElement('option');
+                option.value = f.id;
+                option.textContent = f.properties.name || `SubCounty ${f.id}`;
+                select.appendChild(option);
+            });
+            
+            console.log('Subcounties loaded successfully');
+        })
+        .catch(error => {
+            console.error('Error loading subcounties:', error);
+            showInfoMessage('Error loading subcounty boundaries');
+        });
+}
+
+function loadWards(subcountyId) {
+    if (!subcountyId || subcountyId === 'all') {
+        // If no subcounty selected, clear wards
+        wardLayer.clearLayers();
+        return;
+    }
+    
+    let url = `/api/wards-geojson/?subcounty_id=${subcountyId}`;
+    
+    console.log('Loading wards from:', url);
+    
+    fetch(url)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            console.log('Wards data received:', data);
+            wardLayer.clearLayers();
+            
+            if (wardsVisible && data.features && data.features.length > 0) {
+                L.geoJSON(data, {
+                    style: {
+                        color: '#33b5e5',
+                        weight: 1,
+                        opacity: 0.5,
+                        fillOpacity: 0.03,
+                        dashArray: '2, 4'
+                    },
+                    onEachFeature: function(feature, layer) {
+                        const props = feature.properties;
+                        
+                        // Store feature data
+                        layer.feature = feature;
+                        
+                        // Add click handler for spatial query
+                        layer.on('click', function(e) {
+                            console.log('Ward clicked:', props);
+                            
+                            const geometry = layer.toGeoJSON().geometry;
+                            queryPointsInPolygon(geometry, props.name || 'Selected Ward');
+                            
+                            map.fitBounds(layer.getBounds(), { padding: [20, 20] });
+                        });
+                        
+                        layer.bindPopup(`
+                            <div style="color: white;">
+                                <h6 style="color: #33b5e5; margin-bottom: 5px;">${props.name || 'Ward'}</h6>
+                                <hr style="border-color: rgba(255,255,255,0.1); margin: 5px 0;">
+                                <p><strong>Water Points:</strong> ${props.point_count || 0}</p>
+                                <p><strong>Operational:</strong> ${props.operational_count || 0}</p>
+                                <p><strong>Success Rate:</strong> ${props.success_rate || 0}%</p>
+                                <p><em>Click for detailed spatial analysis</em></p>
+                            </div>
+                        `);
+                    }
+                }).addTo(wardLayer);
+            }
+        })
+        .catch(error => {
+            console.error('Error loading wards:', error);
+        });
+}
+
+function loadWardsList(subcountyId) {
+    if (!subcountyId || subcountyId === 'all') {
+        const select = document.getElementById('wardSelect');
+        select.innerHTML = '<option value="all">All Wards</option>';
+        select.disabled = true;
+        return;
+    }
+    
+    const url = `/api/wards-list/?subcounty_id=${subcountyId}`;
+    
+    console.log('Loading wards list from:', url);
+    
+    fetch(url)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            console.log('Wards list data received:', data);
+            const select = document.getElementById('wardSelect');
+            select.innerHTML = '<option value="all">All Wards</option>';
+            select.disabled = false;
+            
+            // Check if data is an array
+            if (Array.isArray(data)) {
+                data.forEach(w => {
+                    const option = document.createElement('option');
+                    option.value = w.id;
+                    option.textContent = w.name + (w.point_count ? ` (${w.point_count})` : '');
+                    select.appendChild(option);
+                });
+            } else {
+                console.error('Wards list data is not an array:', data);
+            }
+        })
+        .catch(error => {
+            console.error('Error loading wards list:', error);
+            const select = document.getElementById('wardSelect');
+            select.innerHTML = '<option value="all">All Wards</option>';
+            select.disabled = true;
+        });
+}
+
+function loadWaterPoints() {
+    const subcountyId = document.getElementById('subcountySelect').value;
+    const wardId = document.getElementById('wardSelect').value;
+    const status = document.getElementById('statusSelect').value;
+    const search = document.getElementById('searchInput').value;
+    const minDepth = document.getElementById('minDepth').value;
+    const maxDepth = document.getElementById('maxDepth').value;
+    
+    let url = '/api/filtered-water-points/?';
+    if (subcountyId !== 'all') url += `subcounty_id=${subcountyId}&`;
+    if (wardId !== 'all') url += `ward_id=${wardId}&`;
+    if (status !== 'all') url += `status=${status}&`;
+    if (search) url += `search=${encodeURIComponent(search)}&`;
+    if (minDepth) url += `min_depth=${minDepth}&`;
+    if (maxDepth) url += `max_depth=${maxDepth}&`;
+    
+    // Add current bounds for performance
+    const bounds = map.getBounds();
+    url += `bounds=${bounds.getWest()},${bounds.getSouth()},${bounds.getEast()},${bounds.getNorth()}`;
+    
+    console.log('Loading water points from:', url);
+    
+    fetch(url)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            console.log('Water points data received:', data);
+            
+            waterPointsLayer.clearLayers();
+            
+            if (!data.features || data.features.length === 0) {
+                console.log('No water points found');
+                return;
+            }
+            
+            // Use counts from response if available
+            let counts = data.counts || { operational: 0, non_operational: 0, unknown: 0 };
+            
+            L.geoJSON(data, {
+                pointToLayer: function(feature, latlng) {
+                    const props = feature.properties;
+                    let color = '#ffaa00'; // default unknown color
+                    
+                    // Color based on classified status
+                    if (props.status === 'operational') {
+                        color = '#00cc44'; // green
+                    } else if (props.status === 'non_operational') {
+                        color = '#ff4444'; // red
+                    }
+                    
+                    return L.circleMarker(latlng, {
+                        radius: 6,
+                        fillColor: color,
+                        color: '#ffffff',
+                        weight: 1,
+                        fillOpacity: 0.9
+                    });
+                },
+                onEachFeature: function(feature, layer) {
+                    const props = feature.properties;
+                    const latlng = layer.getLatLng();
+                    
+                    layer.bindPopup(`
+                        <div style="min-width: 280px; color: white;">
+                            <h6 style="color: #0066cc; margin-bottom: 8px;">${props.name || 'Unnamed'}</h6>
+                            <hr style="border-color: rgba(255,255,255,0.1); margin: 5px 0;">
+                            <table style="width: 100%; font-size: 0.9rem;">
+                                <tr><td><strong>Status:</strong></td><td><span style="color: ${props.status === 'operational' ? '#00cc44' : props.status === 'non_operational' ? '#ff4444' : '#ffaa00'};">${props.status_display || props.status || 'Unknown'}</span></td></tr>
+                                <tr><td><strong>Operation:</strong></td><td>${props.operation_field || 'N/A'}</td></tr>
+                                <tr><td><strong>Sub-County:</strong></td><td>${props.sub_county || 'N/A'}</td></tr>
+                                <tr><td><strong>Ward:</strong></td><td>${props.ward || 'N/A'}</td></tr>
+                                <tr><td><strong>Depth:</strong></td><td>${props.depth || 'N/A'} m</td></tr>
+                                <tr><td><strong>Yield:</strong></td><td>${props.yield ? props.yield + ' L/s' : 'N/A'}</td></tr>
+                                <tr><td><strong>pH:</strong></td><td>${props.ph || 'N/A'}</td></tr>
+                                <tr><td><strong>EC:</strong></td><td>${props.ec || 'N/A'}</td></tr>
+                                <tr><td><strong>Has Pump:</strong></td><td>${props.has_pump ? 'Yes' : 'No'}</td></tr>
+                            </table>
+                        </div>
+                    `);
+                    
+                    layer.bindTooltip(props.name || 'Water Point', {
+                        permanent: false,
+                        direction: 'top'
+                    });
+                }
+            }).addTo(waterPointsLayer);
+            
+            // Update stats
+            document.getElementById('totalPoints').textContent = data.total_count || 0;
+            document.getElementById('operationalPoints').textContent = counts.operational;
+            document.getElementById('nonOperationalPoints').textContent = counts.non_operational;
+            document.getElementById('unknownPoints').textContent = counts.unknown;
+            
+            console.log('Water points loaded:', counts);
+        })
+        .catch(error => {
+            console.error('Error loading water points:', error);
+            showInfoMessage('Error loading water points. Please try again.');
+        });
+}
+
+// ==================== SPATIAL QUERY FUNCTIONS ====================
+
+// Function to query points within a polygon
+function queryPointsInPolygon(geometry, areaName) {
+    console.log('Querying points in polygon:', areaName);
+    console.log('Geometry:', geometry);
+    
+    // Handle MultiPolygon - extract the first polygon
+    let processedGeometry = geometry;
+    
+    // If it's a MultiPolygon, take the first polygon for querying
+    if (geometry.type === 'MultiPolygon') {
+        console.log('Converting MultiPolygon to Polygon');
+        processedGeometry = {
+            type: 'Polygon',
+            coordinates: geometry.coordinates[0] // Take the first polygon
+        };
+    }
+    
+    // Show loading indicator
+    showInfoMessage(`Analyzing points in ${areaName}...`);
+    
+    // Get CSRF token
+    const csrftoken = getCookie('csrftoken');
+    
+    fetch('/api/points-in-polygon/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': csrftoken
+        },
+        body: JSON.stringify({
+            geometry: processedGeometry
+        })
+    })
+    .then(response => {
+        console.log('Response status:', response.status);
+        if (!response.ok) {
+            return response.json().then(err => {
+                throw new Error(err.error || `HTTP error! status: ${response.status}`);
+            });
+        }
+        return response.json();
+    })
+    .then(data => {
+        console.log('Points in polygon:', data);
+        
+        if (data.error) {
+            showInfoMessage(`Error: ${data.error}`);
+            return;
+        }
+        
+        // Create a custom popup with the statistics
+        const popupContent = `
+            <div style="min-width: 320px; color: white;">
+                <h6 style="color: #0066cc; margin-bottom: 10px; font-size: 1.1rem;">${areaName}</h6>
+                <hr style="border-color: rgba(255,255,255,0.1); margin: 5px 0;">
+                
+                <div style="display: flex; justify-content: space-between; margin: 15px 0;">
+                    <div style="text-align: center; flex: 1; background: rgba(0,204,68,0.1); padding: 8px; border-radius: 8px; margin-right: 5px;">
+                        <div style="font-size: 1.8rem; font-weight: bold; color: #00cc44;">${data.operational}</div>
+                        <div style="font-size: 0.8rem; color: rgba(255,255,255,0.7);">Operational</div>
+                    </div>
+                    <div style="text-align: center; flex: 1; background: rgba(255,68,68,0.1); padding: 8px; border-radius: 8px; margin-right: 5px;">
+                        <div style="font-size: 1.8rem; font-weight: bold; color: #ff4444;">${data.non_operational}</div>
+                        <div style="font-size: 0.8rem; color: rgba(255,255,255,0.7);">Non-Op</div>
+                    </div>
+                    <div style="text-align: center; flex: 1; background: rgba(255,170,0,0.1); padding: 8px; border-radius: 8px;">
+                        <div style="font-size: 1.8rem; font-weight: bold; color: #ffaa00;">${data.unknown}</div>
+                        <div style="font-size: 0.8rem; color: rgba(255,255,255,0.7);">Unknown</div>
+                    </div>
+                </div>
+                
+                <div style="background: linear-gradient(135deg, #0066cc20, #00499920); padding: 12px; border-radius: 8px; margin-bottom: 15px;">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+                        <span><strong>Total Points:</strong></span>
+                        <span style="font-weight: bold; font-size: 1.2rem;">${data.total}</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between;">
+                        <span><strong>Success Rate:</strong></span>
+                        <span style="font-weight: bold; font-size: 1.2rem; color: ${data.success_rate > 50 ? '#00cc44' : '#ffaa00'};">${data.success_rate}%</span>
+                    </div>
+                </div>
+                
+                ${data.points && data.points.length > 0 ? `
+                    <div style="max-height: 200px; overflow-y: auto; background: rgba(0,0,0,0.2); border-radius: 8px; padding: 8px;">
+                        <p style="margin-bottom: 8px; font-weight: bold;"><i class="fas fa-list"></i> Points in Area (${data.points.length})</p>
+                        ${data.points.map(p => `
+                            <div style="font-size: 0.85rem; padding: 4px 0; border-bottom: 1px solid rgba(255,255,255,0.05); display: flex; align-items: center;">
+                                <span style="color: ${p.status === 'operational' ? '#00cc44' : p.status === 'non_operational' ? '#ff4444' : '#ffaa00'}; margin-right: 8px;">●</span>
+                                <span style="flex: 1;">${p.name || 'Unnamed'}</span>
+                                <span style="color: rgba(255,255,255,0.5); font-size: 0.75rem;">${p.status}</span>
+                            </div>
+                        `).join('')}
+                    </div>
+                ` : '<p style="text-align: center; color: rgba(255,255,255,0.5);">No water points in this area</p>'}
+            </div>
+        `;
+        
+        // Create a popup at the center of the polygon bounds
+        try {
+            const bounds = L.geoJSON({geometry: geometry}).getBounds();
+            const popup = L.popup({
+                maxWidth: 400,
+                className: 'spatial-popup',
+                autoPan: true
+            })
+            .setLatLng(bounds.getCenter())
+            .setContent(popupContent)
+            .openOn(map);
+        } catch (e) {
+            console.error('Error creating popup:', e);
+            // Fallback: show at map center
+            L.popup({
+                maxWidth: 400,
+                className: 'spatial-popup'
+            })
+            .setLatLng(map.getCenter())
+            .setContent(popupContent)
+            .openOn(map);
+        }
+    })
+    .catch(error => {
+        console.error('Error querying points in polygon:', error);
+        showInfoMessage(`Error: ${error.message || 'Failed to analyze area'}`);
+        
+        // Show error popup
+        L.popup({
+            maxWidth: 300,
+            className: 'error-popup'
+        })
+        .setLatLng(map.getCenter())
+        .setContent(`
+            <div style="color: white; text-align: center;">
+                <h6 style="color: #ff4444;">Analysis Failed</h6>
+                <p>${error.message || 'Could not analyze points in this area'}</p>
+                <p style="font-size: 0.8rem; color: rgba(255,255,255,0.5);">Please try again or contact support</p>
+            </div>
+        `)
+        .openOn(map);
+    });
+}
+
+// ==================== FILTER FUNCTIONS ====================
+function applyFilters() {
+    loadWaterPoints();
+    showInfoMessage('Filters applied');
+}
+
+function resetFilters() {
+    document.getElementById('subcountySelect').value = 'all';
+    document.getElementById('wardSelect').innerHTML = '<option value="all">All Wards</option>';
+    document.getElementById('wardSelect').disabled = true;
+    document.getElementById('statusSelect').value = 'all';
+    document.getElementById('searchInput').value = '';
+    document.getElementById('minDepth').value = '';
+    document.getElementById('maxDepth').value = '';
+    
+    loadWards('all');
+    loadWaterPoints();
+    showInfoMessage('Filters reset');
+}
+
+// Event listeners
+document.getElementById('subcountySelect').addEventListener('change', function(e) {
+    const subcountyId = e.target.value;
+    loadWards(subcountyId);
+    loadWardsList(subcountyId);
+    
+    // If a specific subcounty is selected, zoom to it
+    if (subcountyId !== 'all') {
+        zoomToSubcounty(subcountyId);
+    }
+});
+
+document.getElementById('wardSelect').addEventListener('change', function(e) {
+    const wardId = e.target.value;
+    if (wardId !== 'all') {
+        zoomToWard(wardId);
+    }
+    loadWaterPoints();
+});
+
+document.getElementById('statusSelect').addEventListener('change', function() {
+    loadWaterPoints();
+});
+
+document.getElementById('searchInput').addEventListener('keyup', function(e) {
+    if (e.key === 'Enter') {
+        applyFilters();
+    }
+});
+
+// ==================== ZOOM FUNCTIONS ====================
+function zoomToCounty() {
+    loadCountyBoundary();
+    showInfoMessage('Zoomed to county');
+}
+
+function zoomToSubcounty(subcountyId) {
+    subcountyLayer.eachLayer(function(layer) {
+        if (layer.feature && layer.feature.id == subcountyId) {
+            map.fitBounds(layer.getBounds(), { padding: [20, 20] });
+            layer.openPopup();
+        }
+    });
+}
+
+function zoomToWard(wardId) {
+    wardLayer.eachLayer(function(layer) {
+        if (layer.feature && layer.feature.id == wardId) {
+            map.fitBounds(layer.getBounds(), { padding: [20, 20] });
+            layer.openPopup();
+        }
+    });
+}
+
+function zoomToPoint(lat, lng) {
+    map.setView([lat, lng], 15);
+}
+
+// ==================== TOGGLE FUNCTIONS ====================
+function toggleSubcounties() {
+    if (subcountiesVisible) {
+        map.removeLayer(subcountyLayer);
+    } else {
+        map.addLayer(subcountyLayer);
+    }
+    subcountiesVisible = !subcountiesVisible;
+    showInfoMessage(subcountiesVisible ? 'Sub-counties visible' : 'Sub-counties hidden');
+}
+
+function toggleWards() {
+    if (wardsVisible) {
+        map.removeLayer(wardLayer);
+    } else {
+        map.addLayer(wardLayer);
+        loadWards(document.getElementById('subcountySelect').value);
+    }
+    wardsVisible = !wardsVisible;
+    showInfoMessage(wardsVisible ? 'Wards visible' : 'Wards hidden');
+}
+
+function toggleLegend() {
+    const legend = document.getElementById('legendItems');
+    const icon = document.getElementById('legendToggleIcon');
+    if (legend.style.display === 'none') {
+        legend.style.display = 'block';
+        icon.className = 'fas fa-minus';
+    } else {
+        legend.style.display = 'none';
+        icon.className = 'fas fa-plus';
+    }
+}
+
+function toggleStats() {
+    const stats = document.getElementById('statsContent');
+    const icon = document.getElementById('statsToggleIcon');
+    if (stats.style.display === 'none') {
+        stats.style.display = 'block';
+        icon.className = 'fas fa-minus';
+    } else {
+        stats.style.display = 'none';
+        icon.className = 'fas fa-plus';
+    }
+}
+
+function toggleFullscreen() {
+    if (document.fullscreenElement) {
+        document.exitFullscreen();
+    } else {
+        document.documentElement.requestFullscreen();
+    }
+}
+
+function toggleLayerControl() {
+    const layers = document.querySelector('.leaflet-control-layers');
+    if (layers) {
+        if (layers.style.display === 'none') {
+            layers.style.display = 'block';
+        } else {
+            layers.style.display = 'none';
+        }
+    }
+}
+
+// ==================== MEASUREMENT FUNCTIONS ====================
+function startDistanceMeasurement() {
+    measurementMode = 'distance';
+    measurementPoints = [];
+    showMeasurement('Distance Measurement', '0.00 km', 'Click to add points');
+    
+    map.on('click', onMeasurementClick);
+    map.on('dblclick', onMeasurementDoubleClick);
+    
+    showInfoMessage('Click on map to measure distance. Double-click to finish.');
+}
+
+function startAreaMeasurement() {
+    measurementMode = 'area';
+    measurementPoints = [];
+    showMeasurement('Area Measurement', '0.00 km²', 'Click to add points');
+    
+    map.on('click', onMeasurementClick);
+    map.on('dblclick', onMeasurementDoubleClick);
+    
+    showInfoMessage('Click on map to measure area. Double-click to finish.');
+}
+
+function startDistanceFromPoint(lat, lng) {
+    measurementMode = 'distance';
+    measurementPoints = [[lat, lng]];
+    showMeasurement('Distance Measurement', '0.00 km', 'Click to add next point');
+    
+    // Add starting point marker
+    L.circleMarker([lat, lng], {
+        radius: 6,
+        fillColor: '#ff9900',
+        color: 'white',
+        weight: 2,
+        fillOpacity: 1
+    }).addTo(drawLayer);
+    
+    map.on('click', onMeasurementClick);
+    map.on('dblclick', onMeasurementDoubleClick);
+    
+    showInfoMessage('Click to add next point. Double-click to finish.');
+}
+
+function onMeasurementClick(e) {
+    measurementPoints.push([e.latlng.lat, e.latlng.lng]);
+    
+    // Draw point
+    L.circleMarker(e.latlng, {
+        radius: 6,
+        fillColor: '#ff9900',
+        color: 'white',
+        weight: 2,
+        fillOpacity: 1
+    }).addTo(drawLayer);
+    
+    // Draw line between points
+    if (measurementPoints.length > 1) {
+        L.polyline(measurementPoints, {
+            color: '#ff9900',
+            weight: 3,
+            opacity: 0.8
+        }).addTo(drawLayer);
+    }
+    
+    updateMeasurement();
+}
+
+function onMeasurementDoubleClick(e) {
+    if (measurementPoints.length < 2) {
+        clearMeasurements();
+        return;
+    }
+    
+    if (measurementMode === 'area' && measurementPoints.length > 2) {
+        // Close the polygon
+        measurementPoints.push(measurementPoints[0]);
+        
+        // Draw polygon
+        L.polygon(measurementPoints, {
+            color: '#ff9900',
+            weight: 3,
+            opacity: 0.8,
+            fillColor: '#ff9900',
+            fillOpacity: 0.2
+        }).addTo(drawLayer);
+    }
+    
+    updateMeasurement(true);
+    
+    // Remove event listeners
+    map.off('click', onMeasurementClick);
+    map.off('dblclick', onMeasurementDoubleClick);
+    
+    document.getElementById('measurementHint').textContent = 'Double-click to start new measurement';
+}
+
+function updateMeasurement(final = false) {
+    if (measurementMode === 'distance') {
+        let totalDistance = 0;
+        for (let i = 0; i < measurementPoints.length - 1; i++) {
+            const p1 = measurementPoints[i];
+            const p2 = measurementPoints[i + 1];
+            totalDistance += calculateDistance(p1[0], p1[1], p2[0], p2[1]);
+        }
+        
+        showMeasurement(
+            'Distance Measurement',
+            totalDistance.toFixed(2) + ' km',
+            (totalDistance * 1000).toFixed(0) + ' meters',
+            final ? '✓ Final measurement' : 'Click to continue...'
+        );
+    } else if (measurementMode === 'area' && measurementPoints.length > 2) {
+        // Calculate area using shoelace formula
+        let area = 0;
+        for (let i = 0; i < measurementPoints.length - 1; i++) {
+            const p1 = measurementPoints[i];
+            const p2 = measurementPoints[i + 1];
+            area += p1[0] * p2[1] - p2[0] * p1[1];
+        }
+        area = Math.abs(area) / 2;
+        
+        // Rough conversion from square degrees to square km
+        const areaKm2 = area * 111 * 111;
+        
+        showMeasurement(
+            'Area Measurement',
+            areaKm2.toFixed(2) + ' km²',
+            (areaKm2 * 100).toFixed(2) + ' hectares | ' + (areaKm2 * 247.105).toFixed(2) + ' acres',
+            final ? '✓ Final measurement' : 'Click to continue...'
+        );
+    }
+}
+
+function showMeasurement(title, value, subvalue = '', hint = '') {
+    document.getElementById('measurementTitle').textContent = title;
+    document.getElementById('measurementValue').textContent = value;
+    document.getElementById('measurementSubvalue').innerHTML = subvalue ? `<small>${subvalue}</small>` : '';
+    if (hint) {
+        document.getElementById('measurementHint').textContent = hint;
+    }
+    document.getElementById('measurementInfo').classList.add('show');
+}
+
+function clearMeasurements() {
+    measurementMode = null;
+    measurementPoints = [];
+    
+    // Clear draw layer except for user drawings
+    drawLayer.clearLayers();
+    
+    document.getElementById('measurementInfo').classList.remove('show');
+    
+    map.off('click', onMeasurementClick);
+    map.off('dblclick', onMeasurementDoubleClick);
+    
+    showInfoMessage('Measurements cleared');
+}
+
+function calculateDistance(lat1, lon1, lat2, lon2) {
+    const R = 6371; // Earth's radius in km
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = 
+        Math.sin(dLat/2) * Math.sin(dLat/2) +
+        Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
+        Math.sin(dLon/2) * Math.sin(dLon/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    return R * c;
+}
+
+// ==================== UTILITY FUNCTIONS ====================
+function showInfoMessage(message) {
+    const popup = document.getElementById('infoPopup');
+    document.getElementById('infoMessage').textContent = message;
+    popup.classList.add('show');
+    
+    setTimeout(() => {
+        popup.classList.remove('show');
+    }, 3000);
+}
+
+function addWaterPoint() {
+    const center = map.getCenter();
+    window.location.href = `/water-point/add/?lat=${center.lat}&lng=${center.lng}`;
+}
+
+function locateMe() {
+    map.locate({ 
+        setView: true, 
+        maxZoom: 15,
+        enableHighAccuracy: true
+    });
+    
+    map.on('locationfound', function(e) {
+        L.circleMarker(e.latlng, {
+            radius: 10,
+            fillColor: '#0066cc',
+            color: 'white',
+            weight: 3,
+            fillOpacity: 0.8
+        }).addTo(drawLayer).bindPopup('You are here').openPopup();
+        
+        showInfoMessage('Location found');
+    });
+    
+    map.on('locationerror', function() {
+        showInfoMessage('Location access denied');
+    });
+}
+
+// ==================== MAP EVENT HANDLERS ====================
+map.on(L.Draw.Event.CREATED, function(event) {
+    const layer = event.layer;
+    drawLayer.addLayer(layer);
+    
+    // Add click handler for spatial query on drawn polygons
+    if (layer instanceof L.Polygon) {
+        layer.on('click', function(e) {
+            console.log('Drawn polygon clicked');
+            
+            const geometry = layer.toGeoJSON().geometry;
+            queryPointsInPolygon(geometry, 'Drawn Area');
+        });
+    }
+    
+    // Calculate area for polygons
+    if (layer instanceof L.Polygon) {
+        const latlngs = layer.getLatLngs()[0];
+        let area = 0;
+        for (let i = 0; i < latlngs.length - 1; i++) {
+            const p1 = latlngs[i];
+            const p2 = latlngs[i + 1];
+            area += p1.lat * p2.lng - p2.lat * p1.lng;
+        }
+        area = Math.abs(area) / 2;
+        const areaKm2 = area * 111 * 111;
+        
+        layer.bindPopup(`
+            <div style="color: white;">
+                <h6 style="color: #0066cc;">Drawn Area</h6>
+                <p><strong>Area:</strong> ${areaKm2.toFixed(2)} km²</p>
+                <p><strong>Hectares:</strong> ${(areaKm2 * 100).toFixed(2)} ha</p>
+                <p><em>Click polygon for water point statistics</em></p>
+            </div>
+        `);
+    }
+    
+    // Calculate distance for polylines
+    if (layer instanceof L.Polyline && !(layer instanceof L.Polygon)) {
+        const latlngs = layer.getLatLngs();
+        let distance = 0;
+        for (let i = 0; i < latlngs.length - 1; i++) {
+            distance += calculateDistance(
+                latlngs[i].lat, latlngs[i].lng,
+                latlngs[i+1].lat, latlngs[i+1].lng
+            );
+        }
+        
+        layer.bindPopup(`
+            <div style="color: white;">
+                <h6 style="color: #ff9900;">Drawn Line</h6>
+                <p><strong>Distance:</strong> ${distance.toFixed(2)} km</p>
+                <p><strong>Meters:</strong> ${(distance * 1000).toFixed(0)} m</p>
+            </div>
+        `);
+    }
+});
+
+map.on('draw:created', function(event) {
+    drawLayer.addLayer(event.layer);
+});
+
+// Load data on map move end (for performance)
+let moveTimeout;
+map.on('moveend', function() {
+    clearTimeout(moveTimeout);
+    moveTimeout = setTimeout(() => {
+        if (!localStorage.getItem('welcomeSeen')) return;
+        loadWaterPoints();
+    }, 500);
+});
+
+// ==================== INITIAL LOAD ====================
+// Load initial data
+if (localStorage.getItem('welcomeSeen')) {
+    loadCountyBoundary();
+    loadSubcounties();
+    loadWaterPoints();
+}
+
+// Refresh water points periodically (every 2 minutes)
+setInterval(() => {
+    if (!localStorage.getItem('welcomeSeen')) return;
+    loadWaterPoints();
+}, 120000);
+</script>
+{% endblock %}

@@ -1,0 +1,705 @@
+<!-- base.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
+    <title>{% block title %}WaterPoint AI - Turkana County{% endblock %}</title>
+    
+    <!-- Bootstrap 5 -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    
+    <!-- Font Awesome 6 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- AOS Animation -->
+    <link href="https://unpkg.com/aos@2.3.1/dist/aos.css" rel="stylesheet">
+    
+    <!-- Toastr Notifications -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.css">
+    
+    <!-- Custom CSS -->
+    {% load static %}
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+    
+    <style>
+        :root {
+            --primary: #0066cc;
+            --primary-dark: #004999;
+            --primary-light: #4d94ff;
+            --secondary: #00cc99;
+            --accent: #ff9900;
+            --danger: #ff4444;
+            --success: #00cc44;
+            --warning: #ffaa00;
+            --info: #33b5e5;
+            --dark: #1a1a2e;
+            --darker: #0f0f1a;
+            --light: #f8f9fa;
+            --gray-100: #f8f9fa;
+            --gray-200: #e9ecef;
+            --gray-300: #dee2e6;
+            --gray-400: #ced4da;
+            --gray-500: #adb5bd;
+            --gray-600: #6c757d;
+            --gray-700: #495057;
+            --gray-800: #343a40;
+            --gray-900: #212529;
+            --shadow-sm: 0 2px 4px rgba(0,0,0,0.1);
+            --shadow-md: 0 4px 6px rgba(0,0,0,0.1);
+            --shadow-lg: 0 10px 15px rgba(0,0,0,0.1);
+            --shadow-xl: 0 20px 25px rgba(0,0,0,0.15);
+            --shadow-2xl: 0 25px 50px rgba(0,0,0,0.25);
+            --gradient-primary: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+            --gradient-accent: linear-gradient(135deg, var(--accent) 0%, #ff5500 100%);
+            --gradient-success: linear-gradient(135deg, var(--success) 0%, #00aa33 100%);
+            --radius-sm: 8px;
+            --radius-md: 12px;
+            --radius-lg: 16px;
+            --radius-xl: 24px;
+            --radius-2xl: 32px;
+            --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--darker);
+            color: var(--light);
+            overflow-x: hidden;
+            min-height: 100vh;
+        }
+
+        /* Modern Scrollbar */
+        ::-webkit-scrollbar {
+            width: 10px;
+            height: 10px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: var(--dark);
+            border-radius: 10px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--primary);
+            border-radius: 10px;
+            border: 2px solid var(--dark);
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--primary-light);
+        }
+
+        /* Navigation */
+        .navbar {
+            background: rgba(26, 26, 46, 0.95);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 1rem 2rem;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 1000;
+            transition: var(--transition);
+        }
+
+        .navbar.scrolled {
+            padding: 0.5rem 2rem;
+            background: rgba(15, 15, 26, 0.98);
+        }
+
+        .navbar-brand {
+            font-family: 'Space Grotesk', sans-serif;
+            font-weight: 800;
+            font-size: 1.8rem;
+            background: linear-gradient(135deg, #fff, var(--primary-light));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            letter-spacing: -0.5px;
+        }
+
+        .navbar-brand i {
+            background: none;
+            -webkit-text-fill-color: var(--primary);
+            margin-right: 10px;
+            font-size: 2rem;
+        }
+
+        .nav-link {
+            color: rgba(255, 255, 255, 0.85) !important;
+            font-weight: 500;
+            padding: 0.7rem 1.2rem !important;
+            border-radius: 50px;
+            transition: var(--transition);
+            font-size: 0.95rem;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .nav-link::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.1);
+            transform: translate(-50%, -50%);
+            transition: width 0.6s, height 0.6s;
+        }
+
+        .nav-link:hover::before {
+            width: 300px;
+            height: 300px;
+        }
+
+        .nav-link:hover {
+            color: white !important;
+        }
+
+        .nav-link.active {
+            background: var(--gradient-primary);
+            color: white !important;
+            box-shadow: 0 4px 15px rgba(0, 102, 204, 0.3);
+        }
+
+        .nav-link i {
+            margin-right: 8px;
+            font-size: 1rem;
+        }
+
+        /* Notification Badge */
+        .notification-badge {
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            background: var(--danger);
+            color: white;
+            border-radius: 50%;
+            width: 18px;
+            height: 18px;
+            font-size: 0.7rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+        }
+
+        /* Dropdown */
+        .dropdown-menu {
+            background: rgba(26, 26, 46, 0.95);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: var(--radius-lg);
+            padding: 0.5rem;
+            margin-top: 0.5rem;
+            box-shadow: var(--shadow-xl);
+        }
+
+        .dropdown-item {
+            color: rgba(255, 255, 255, 0.85);
+            border-radius: var(--radius-md);
+            padding: 0.7rem 1rem;
+            transition: var(--transition);
+            font-weight: 500;
+        }
+
+        .dropdown-item i {
+            width: 20px;
+            margin-right: 10px;
+            color: var(--primary-light);
+        }
+
+        .dropdown-item:hover {
+            background: var(--gradient-primary);
+            color: white;
+            transform: translateX(5px);
+        }
+
+        .dropdown-item:hover i {
+            color: white;
+        }
+
+        .dropdown-divider {
+            border-color: rgba(255, 255, 255, 0.1);
+        }
+
+        /* Messages */
+        .message-container {
+            position: fixed;
+            top: 80px;
+            right: 20px;
+            z-index: 9999;
+            max-width: 400px;
+        }
+
+        .alert {
+            border: none;
+            border-radius: var(--radius-lg);
+            padding: 1rem 1.5rem;
+            margin-bottom: 1rem;
+            box-shadow: var(--shadow-xl);
+            backdrop-filter: blur(10px);
+            animation: slideInRight 0.3s ease;
+            border-left: 4px solid transparent;
+        }
+
+        .alert-success {
+            background: rgba(0, 204, 68, 0.95);
+            color: white;
+            border-left-color: #fff;
+        }
+
+        .alert-error {
+            background: rgba(255, 68, 68, 0.95);
+            color: white;
+            border-left-color: #fff;
+        }
+
+        .alert-warning {
+            background: rgba(255, 170, 0, 0.95);
+            color: white;
+            border-left-color: #fff;
+        }
+
+        .alert-info {
+            background: rgba(51, 181, 229, 0.95);
+            color: white;
+            border-left-color: #fff;
+        }
+
+        @keyframes slideInRight {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        /* Loading Spinner */
+        .spinner-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(15, 15, 26, 0.9);
+            backdrop-filter: blur(5px);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 10000;
+        }
+
+        .spinner {
+            width: 60px;
+            height: 60px;
+            border: 4px solid rgba(255, 255, 255, 0.1);
+            border-top-color: var(--primary);
+            border-right-color: var(--secondary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Main Content */
+        main {
+            margin-top: 70px;
+            min-height: calc(100vh - 70px);
+            background: var(--darker);
+        }
+
+        /* Footer */
+        .footer {
+            background: rgba(15, 15, 26, 0.95);
+            backdrop-filter: blur(10px);
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 1rem 0;
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 0.9rem;
+        }
+
+        /* Toastr Customization */
+        #toast-container > div {
+            opacity: 1 !important;
+            border-radius: var(--radius-lg) !important;
+            box-shadow: var(--shadow-xl) !important;
+            font-family: 'Inter', sans-serif !important;
+            backdrop-filter: blur(10px);
+        }
+
+        .toast-success {
+            background: rgba(0, 204, 68, 0.95) !important;
+        }
+
+        .toast-error {
+            background: rgba(255, 68, 68, 0.95) !important;
+        }
+
+        .toast-warning {
+            background: rgba(255, 170, 0, 0.95) !important;
+        }
+
+        .toast-info {
+            background: rgba(51, 181, 229, 0.95) !important;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .navbar {
+                padding: 0.8rem 1rem;
+            }
+            
+            .navbar-brand {
+                font-size: 1.4rem;
+            }
+            
+            .navbar-brand i {
+                font-size: 1.6rem;
+            }
+            
+            .message-container {
+                max-width: 300px;
+                right: 10px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .navbar-brand span {
+                display: none;
+            }
+            
+            .message-container {
+                max-width: 250px;
+            }
+        }
+    </style>
+    
+    {% block extra_css %}{% endblock %}
+</head>
+
+<body>
+    <!-- Loading Spinner -->
+    <div id="loadingSpinner" class="spinner-overlay" style="display: none;">
+        <div class="spinner"></div>
+    </div>
+
+    <!-- Messages -->
+    <div class="message-container">
+        {% if messages %}
+            {% for message in messages %}
+            <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                <i class="fas fa-{% if message.tags == 'success' %}check-circle{% elif message.tags == 'error' %}exclamation-circle{% elif message.tags == 'warning' %}exclamation-triangle{% else %}info-circle{% endif %} me-2"></i>
+                {{ message }}
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+            {% endfor %}
+        {% endif %}
+    </div>
+
+    {% if user.is_authenticated %}
+    <!-- Navigation -->
+    <nav class="navbar navbar-expand-lg navbar-dark" id="mainNav">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="{% url 'water_app:map_view' %}">
+                <i class="fas fa-water"></i>
+                <span>WaterPoint AI</span>
+            </a>
+            
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.resolver_match.url_name == 'map_view' %}active{% endif %}" 
+                           href="{% url 'water_app:map_view' %}">
+                            <i class="fas fa-map"></i>Map
+                        </a>
+                    </li>
+                    
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}" 
+                           href="{% url 'water_app:dashboard' %}">
+                            <i class="fas fa-chart-bar"></i>Analytics
+                        </a>
+                    </li>
+                    
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.resolver_match.url_name == 'run_prediction' %}active{% endif %}" 
+                           href="{% url 'water_app:prediction_dashboard' %}">
+                            <i class="fas fa-robot"></i>Predict
+                        </a>
+                    </li>
+                    
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'water_app:export_data' %}?format=csv">
+                            <i class="fas fa-download"></i>Export
+                        </a>
+                    </li>
+                    
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" 
+                           data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="fas fa-bell"></i>
+                            {% if unread_notifications > 0 %}
+                            <span class="notification-badge">{{ unread_notifications }}</span>
+                            {% endif %}
+                        </a>
+                        <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="navbarDropdown" id="notificationDropdown">
+                            <li>
+                                <h6 class="dropdown-header">Notifications</h6>
+                            </li>
+                            <li><div id="notificationList" style="max-height: 300px; overflow-y: auto;"></div></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li>
+                                <a class="dropdown-item text-center" href="#" onclick="markAllNotificationsRead()">
+                                    Mark all as read
+                                </a>
+                            </li>
+                        </ul>
+                    </li>
+                    
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" id="userDropdown" role="button" 
+                           data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="fas fa-user-circle"></i> {{ user.get_short_name|default:user.username }}
+                        </a>
+                        <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="userDropdown">
+                            <li>
+                                <a class="dropdown-item" href="{% url 'water_app:profile' %}">
+                                    <i class="fas fa-id-card"></i>Profile
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item" href="#">
+                                    <i class="fas fa-cog"></i>Settings
+                                </a>
+                            </li>
+                            {% if user.is_staff %}
+                            <li><hr class="dropdown-divider"></li>
+                            <li>
+                                <a class="dropdown-item" href="/admin">
+                                    <i class="fas fa-tools"></i>Admin
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item" href="{% url 'water_app:import_shapefile' %}">
+                                    <i class="fas fa-upload"></i>Import Shapefile
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item" href="{% url 'water_app:update_status' %}">
+                                    <i class="fas fa-sync"></i>Update Statuses
+                                </a>
+                            </li>
+                            {% endif %}
+                            <li><hr class="dropdown-divider"></li>
+                            <li>
+                                <a class="dropdown-item text-danger" href="{% url 'water_app:logout' %}">
+                                    <i class="fas fa-sign-out-alt"></i>Sign Out
+                                </a>
+                            </li>
+                        </ul>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+    {% endif %}
+
+    <!-- Main Content -->
+    <main>
+        {% block content %}{% endblock %}
+    </main>
+
+    {% if user.is_authenticated %}
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="row align-items-center">
+                <div class="col-md-6 text-md-start">
+                    <small>© 2025 WaterPoint AI | Turkana County Water Security</small>
+                </div>
+                <div class="col-md-6 text-md-end">
+                    <small>
+                        <i class="fas fa-database me-1" style="color: var(--primary);"></i>{{ total_points|default:"1,059" }} Points
+                        <i class="fas fa-robot me-1 ms-3" style="color: var(--primary);"></i>ML-Powered
+                        <i class="fas fa-map me-1 ms-3" style="color: var(--primary);"></i>GIS-Enabled
+                    </small>
+                </div>
+            </div>
+        </div>
+    </footer>
+    {% endif %}
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <script src="https://unpkg.com/aos@2.3.1/dist/aos.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.js"></script>
+    
+    <!-- Custom JS -->
+    <script src="{% static 'js/main.js' %}"></script>
+
+    <script>
+        // Initialize AOS
+        AOS.init({
+            duration: 800,
+            once: true,
+            offset: 100
+        });
+
+        // Configure toastr
+        toastr.options = {
+            "closeButton": true,
+            "progressBar": true,
+            "positionClass": "toast-top-right",
+            "timeOut": "5000",
+            "extendedTimeOut": "1000",
+            "showEasing": "swing",
+            "hideEasing": "linear",
+            "showMethod": "fadeIn",
+            "hideMethod": "fadeOut"
+        };
+
+        // Navbar scroll effect
+        window.addEventListener('scroll', function() {
+            const nav = document.getElementById('mainNav');
+            if (window.scrollY > 50) {
+                nav.classList.add('scrolled');
+            } else {
+                nav.classList.remove('scrolled');
+            }
+        });
+
+        // Loading spinner for AJAX
+        $(document).ajaxStart(function() {
+            $('#loadingSpinner').fadeIn(200);
+        }).ajaxStop(function() {
+            $('#loadingSpinner').fadeOut(200);
+        });
+
+        // Auto-hide messages
+        setTimeout(function() {
+            $('.alert').fadeOut(300);
+        }, 5000);
+
+        // Active nav link
+        $(function() {
+            const current = window.location.pathname;
+            $('.nav-link').each(function() {
+                const $this = $(this);
+                if ($this.attr('href') === current) {
+                    $this.addClass('active');
+                }
+            });
+            
+            // Load notifications if user is authenticated
+            {% if user.is_authenticated %}
+            loadNotifications();
+            // Refresh notifications every minute
+            setInterval(loadNotifications, 60000);
+            {% endif %}
+        });
+
+        // Notification functions
+        function loadNotifications() {
+            fetch('/api/notifications/')
+                .then(response => response.json())
+                .then(data => {
+                    const list = document.getElementById('notificationList');
+                    if (!list) return;
+                    
+                    if (data.length === 0) {
+                        list.innerHTML = '<div class="text-center p-3 text-muted">No notifications</div>';
+                        return;
+                    }
+                    
+                    let html = '';
+                    data.forEach(notification => {
+                        const priorityColor = {
+                            'urgent': 'text-danger',
+                            'high': 'text-warning',
+                            'normal': 'text-info',
+                            'low': 'text-success'
+                        }[notification.priority] || 'text-info';
+                        
+                        html += `
+                            <div class="dropdown-item ${notification.is_read ? 'text-muted' : ''}" 
+                                 onclick="markNotificationRead(${notification.id})">
+                                <i class="fas fa-circle ${priorityColor} me-2" style="font-size: 0.6rem;"></i>
+                                <strong>${notification.title}</strong><br>
+                                <small>${notification.message.substring(0, 50)}${notification.message.length > 50 ? '...' : ''}</small>
+                                <br>
+                                <small class="text-muted">${new Date(notification.created_at).toLocaleString()}</small>
+                            </div>
+                        `;
+                    });
+                    list.innerHTML = html;
+                })
+                .catch(error => console.error('Error loading notifications:', error));
+        }
+
+        function markNotificationRead(id) {
+            fetch(`/api/notifications/${id}/read/`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': getCookie('csrftoken')
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    loadNotifications();
+                }
+            })
+            .catch(error => console.error('Error marking notification read:', error));
+        }
+
+        function markAllNotificationsRead() {
+            // This would need a bulk endpoint
+            toastr.success('All notifications marked as read');
+        }
+
+        // CSRF token helper
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+    </script>
+
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

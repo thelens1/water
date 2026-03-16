@@ -1,0 +1,124 @@
+{
+  "metrics": {
+    "accuracy": 0.8598726114649682,
+    "precision": 0.24,
+    "recall": 0.6666666666666666,
+    "f1_score": 0.35294117647058826,
+    "roc_auc": 0.9016516516516516,
+    "threshold": 0.21320686303214414,
+    "confusion_matrix": [
+      [
+        129,
+        19
+      ],
+      [
+        3,
+        6
+      ]
+    ],
+    "classification_report": {
+      "0": {
+        "precision": 0.9772727272727273,
+        "recall": 0.8716216216216216,
+        "f1-score": 0.9214285714285714,
+        "support": 148.0
+      },
+      "1": {
+        "precision": 0.24,
+        "recall": 0.6666666666666666,
+        "f1-score": 0.35294117647058826,
+        "support": 9.0
+      },
+      "accuracy": 0.8598726114649682,
+      "macro avg": {
+        "precision": 0.6086363636363636,
+        "recall": 0.7691441441441441,
+        "f1-score": 0.6371848739495798,
+        "support": 157.0
+      },
+      "weighted avg": {
+        "precision": 0.935008685581934,
+        "recall": 0.8598726114649682,
+        "f1-score": 0.8888401220360757,
+        "support": 157.0
+      }
+    },
+    "individual_model_scores": {
+      "rf_f1": 0.37209302325581395,
+      "xgb_f1": 0.3,
+      "lgbm_f1": 0.35714285714285715
+    }
+  },
+  "feature_importance": {
+    "building_proximity_score": 246.4269519344326,
+    "well_depth": 241.94712620798873,
+    "longitude": 187.59230967264057,
+    "dist_to_road_m": 180.74839215617382,
+    "latitude": 175.42803281637663,
+    "density_road_interaction": 162.53398897834205,
+    "water_points_20km": 156.06242084474002,
+    "ph": 154.57161820445043,
+    "water_points_10km": 135.18429916975967,
+    "road_access_index": 131.76790034545442,
+    "short_rains_mm": 125.30543511506852,
+    "dist_to_nearest_water_m": 124.1814553223237,
+    "people_water_ratio_sq": 111.67248803572235,
+    "distance_to_water_scaled": 110.88572996742342,
+    "people_per_water_point_10km": 104.42601325403619,
+    "climate_risk_index": 94.93233175832363,
+    "water_scarcity_index": 87.39610678259771,
+    "water_points_5km": 75.9479475253788,
+    "spatial_cluster": 60.378316995668484,
+    "people_per_water_point_5km": 47.111569331554406,
+    "sand_pct": 0.0,
+    "clay_pct": 0.0,
+    "soc": 0.0,
+    "flow_accumulation": 0.0,
+    "soil_quality_index": 0.0
+  },
+  "feature_names": [
+    "short_rains_mm",
+    "sand_pct",
+    "clay_pct",
+    "soc",
+    "flow_accumulation",
+    "dist_to_road_m",
+    "dist_to_nearest_water_m",
+    "water_points_5km",
+    "water_points_10km",
+    "water_points_20km",
+    "people_per_water_point_5km",
+    "people_per_water_point_10km",
+    "building_proximity_score",
+    "well_depth",
+    "ph",
+    "latitude",
+    "longitude",
+    "density_road_interaction",
+    "people_water_ratio_sq",
+    "distance_to_water_scaled",
+    "road_access_index",
+    "water_scarcity_index",
+    "soil_quality_index",
+    "climate_risk_index",
+    "spatial_cluster"
+  ],
+  "threshold": 0.21320686303214414,
+  "training_info": {
+    "n_samples": 729,
+    "n_features": 25,
+    "positive_class_ratio": 0.05898491083676269,
+    "date_trained": "2026-03-15T08:17:02.659658",
+    "model_type": "WeightedEnsemble",
+    "model_files": {
+      "rf": "rf_model_20260315_081702.joblib",
+      "xgb": "xgb_model_20260315_081702.joblib",
+      "lgbm": "lgbm_model_20260315_081702.joblib"
+    }
+  },
+  "weights": [
+    0.33970460469157254,
+    0.28062554300608167,
+    0.37966985230234584
+  ]
+}
